@@ -140,6 +140,19 @@ re-checked.
 | Both indentation variants parse identically | `test_indented_variant_parses_identically` |
 | `file_name: NONE` is not a download | `test_downloads_only_counts_real_payloads` |
 
+### 1.5d Unisoc `.pac` header
+
+| Claim | Test |
+|---|---|
+| Field offsets (version 0, hi 44, lo 48, product 52, firmware 180) | `test_pac.TestHeader.test_offsets` |
+| `dwLoSize` equals the file size on the one real sample | `test_real_pacs.test_exactly_one_is_in_the_format_the_tool_implements` |
+| Only `BP_R1.0.0` / `BP_R2.0.1` are accepted | `test_unsupported_version_rejected` |
+| 28 of 29 shipped `.pac` files share one 48-byte prefix | `test_the_28_realme_files_share_one_prefix` |
+| Those 28 fail the version gate | `test_realme_files_fail_the_version_gate` |
+
+The fact that `dwLoSize` matches the file length exactly on the real sample is
+what makes the derived offsets evidence rather than a fit.
+
 ### 1.6 Local account / licence
 
 `test_auth.py` (19 tests) covers the `Check00` control flow, the

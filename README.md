@@ -20,7 +20,7 @@ Everything here starts by taking that installer apart.
 | MediaTek xflash command framing | `src/unlocktool_re/mtk.py` | verified (client side) |
 | Device side of both protocol families | `src/unlocktool_re/mockdevice.py` | **simulated** |
 
-196 tests, 0 failures. `docs/validation-report.md` separates what is verified,
+208 tests, 0 failures. `docs/validation-report.md` separates what is verified,
 what is simulated and what is merely inferred.
 
 ## Quick start
@@ -99,6 +99,7 @@ src/unlocktool_re/
   motoking.py     the MotoKingProS/R container (fifth vendor's auth blobs)
   scatter.py      MediaTek scatter files (android.txt) - 158 model folders
   ofp.py          OPPO .ofp container reader (simulated: no sample ships)
+  pac.py          Unisoc .pac header (1 of 29 shipped files is in that format)
   dispatch.py     operation name -> workflow family -> action
   plan.py         operation script -> ordered steps -> execution
   mtk.py          MediaTek xflash framing
@@ -124,7 +125,7 @@ scripts/
   extract_tree.py     extract the data tree from the installer
   build_matrix.py     regenerate docs/compatibility-matrix.md
 
-tests/                196 tests
+tests/                208 tests
 artifacts/tree/       extracted data tree (485 MB, git-ignored)
 ```
 

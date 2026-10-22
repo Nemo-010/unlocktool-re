@@ -566,3 +566,34 @@ second artefact — the merged-in tool that owns them (PrimeToolX or the
 - **Note**: an early reading had the probe going through `Unpack`; the IL at
   IL_0076..IL_0086 shows BytesToHextring -> ToLower -> Contains with no Unpack
   call, so that was wrong and is retracted.
+
+## R41 — The Unisoc `.pac` header, and why only 1 of 29 ships in that format
+
+- **Hypothesis**: `.pac` files are opaque.
+- **Artefacts**: `UniFlash.PACExtractor.ParsePacHeader` does
+  `Marshal.PtrToStructure<PacHeaderStruct>` over `Marshal.SizeOf` bytes, and
+  the `ClassLayout` row for `PacHeaderStruct` confirms `pack=1`. Every string
+  field is a fixed UTF-16 buffer read via `Encoding.Unicode.GetString` and
+  `TrimEnd('\0')`.
+- **Experiments**: solved the offsets against the one readable sample
+  (`NOKIA/_unassigned/frp.pac`):
+
+      off 0x00  wchar[22] szVersion       "BP_R1.0.0"
+      off 0x2C  u32       dwHiSize        0
+      off 0x30  u32       dwLoSize        941376   (= the whole file)
+      off 0x34  wchar[64] productName     "sp7731e_1h10"
+      off 0xB4  wchar[64] firmwareName    ""
+
+  `dwHiSize << 32 | dwLoSize` is the header length, and it matches the file
+  size exactly — which is what makes the offsets trustworthy rather than
+  fitted.
+- **Version gate**: `ParsePacHeader` accepts only `BP_R1.0.0` and `BP_R2.0.1`
+  and otherwise calls `Abort("Unsupported PAC version")`.
+- **The useful negative**: 29 `.pac` files ship; **28 are REALME** and share
+  one identical 48-byte prefix (`6cdd713d5f57dcd4…`), are entropy-8.0 with no
+  repeated 16-byte block, and fail the version gate before the partition list
+  is reached. They are a different, opaque packaging that this code path
+  cannot read.
+- **Confirmed**: yes for the format; and the 28-file negative is measured.
+- **Status**: `validated` for the header (`tests/test_pac.py`) — with the
+  one-readable-file caveat stated in the test name.
