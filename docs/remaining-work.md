@@ -145,12 +145,39 @@ alone advertises 533 and has zero files.
 false (all 7 387 entries were accounted for), so this is almost certainly a
 vendor data defect — but confirming the mechanism is worth one pass.
 
-## 6. Decode the `.ofp` and `.pac` containers
+## 6. Validate the `.ofp` reader against a real file
 
-`OFPExtractor` (3 894 IL ops) and `UniFlash.PACExtractor` (1 577) are
-implemented but their containers were not parsed here. Both are self-contained
-file formats with no device dependency, so they are cheap to reproduce and
-would extend the matrix to OPPO firmware flashing and Unisoc.
+**Status**: `ofp.py` implements the layout from the IL (probe at
+`len + 16 - page_size`, `xml_offset = u32_le(base+20) * page_size`,
+`xml_size = u32_le(base+24)`, region rounded up to 16), and round-trips
+fixtures at both page sizes. **No `.ofp` ships in the archive**, so nothing has
+validated the offset arithmetic against real data.
+
+**Next experiment**: set `OFP_SAMPLE=/path/to/file.ofp` and run
+`python3 -m unittest tests.test_ofp`. If `xml_offset` lands on `<` and the
+region parses as XML, the reader is confirmed; if not, the probe constant or
+the `+20`/`+24` offsets need re-deriving from `BruteKeyQcom`.
+
+## 6b. Decode the `.pac` container
+
+`UniFlash.PACExtractor` (1 577 IL ops) is implemented but not reconstructed
+here. It is self-contained with no device dependency, so it is the next cheap
+win and would cover the Unisoc flashing path (29 models already have
+`fdl1`/`fdl2`).
+
+## 6c. The 158 scatter models have no operation scripts
+
+**Finding from this round.** 158 models ship an MTK scatter file
+(`android.txt`) that `ColokTool.RDA.MtkScatter` parses, but their brand-index
+`method` slots name Qualcomm rawprogram scripts that do not exist for them.
+So the tool can read the partition table and cannot act on it via the
+documented path.
+
+**Next experiment**: check whether the MTK path uses the scatter table instead
+of a script — `thread_handling.FormatFRP` reads `gpt.readgpt` for the partition
+map, not the scatter. If so, those 158 models may be drivable by
+partition-name alone and the "missing script" count for them is a false
+negative.
 
 ## 7. Not attempted
 

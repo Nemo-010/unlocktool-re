@@ -20,7 +20,7 @@ Everything here starts by taking that installer apart.
 | MediaTek xflash command framing | `src/unlocktool_re/mtk.py` | verified (client side) |
 | Device side of both protocol families | `src/unlocktool_re/mockdevice.py` | **simulated** |
 
-172 tests, 0 failures. `docs/validation-report.md` separates what is verified,
+196 tests, 0 failures. `docs/validation-report.md` separates what is verified,
 what is simulated and what is merely inferred.
 
 ## Quick start
@@ -52,11 +52,13 @@ All from the shipped artefacts; see `docs/compatibility-matrix.md`.
 | Brand indexes | 16 |
 | Indexed devices | 1 559 |
 | Devices with a payload folder | 746 |
+| Devices with a payload the binary can read (EDL + scatter + Unisoc) | **715** |
 | `programs.bin` loaders present | 528 |
 | Loaders that decrypt to ELF | 495 |
 | Advertised operation slots | 2 230 |
 | Operation scripts present | 989 |
 | Scripts that parse | 968 |
+| MTK scatter files that parse | 158 of 158 |
 | Advertised operations that build a complete plan | **841** |
 | Steps across those plans | 46 447 |
 | Loaders that are an ARM pre-loader container, not ELF | 6 |
@@ -94,6 +96,8 @@ src/unlocktool_re/
   firehose.py     Qualcomm rawprogram scripts (program/erase/patch)
   container.py    the second loader container (ARM pre-loader, not ELF)
   motoking.py     the MotoKingProS/R container (fifth vendor's auth blobs)
+  scatter.py      MediaTek scatter files (android.txt) - 158 model folders
+  ofp.py          OPPO .ofp container reader (simulated: no sample ships)
   dispatch.py     operation name -> workflow family -> action
   plan.py         operation script -> ordered steps -> execution
   mtk.py          MediaTek xflash framing
@@ -119,7 +123,7 @@ scripts/
   extract_tree.py     extract the data tree from the installer
   build_matrix.py     regenerate docs/compatibility-matrix.md
 
-tests/                172 tests
+tests/                196 tests
 artifacts/tree/       extracted data tree (485 MB, git-ignored)
 ```
 
