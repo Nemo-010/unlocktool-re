@@ -39,7 +39,7 @@ one operation. It is still not *validated* — that would need a device.
 | VIVO | Qualcomm EDL | 159 | 153 | 108 | 100 | 390 | 387 | 380 | 100 | firehose loader |
 | XIAOMI | Qualcomm EDL | 348 | 148 | 139 | 135 | 580 | 6 | 6 | 0 | firehose loader |
 | XIAOMItyu | — | 124 | 0 | 0 | 0 | 533 | 0 | 0 | 0 | none |
-| **total** | | **1559** | **746** | **528** | **495** | **2230** | **989** | **968** | **349** |
+| **total** | | **1559** | **746** | **528** | **495** | **2228** | **988** | **967** | **349** |
 
 `Usable` is lower than `Loader ok` wherever loaders exist but the operation
 scripts that would use them are missing. XIAOMI is the extreme case: 135
@@ -88,6 +88,27 @@ README describes and this audit measures.
 33 devices have a `programs.bin` that does not become an ELF with either
 documented password. They cluster in ASUS (3), OPPO (10), REALME (8), VIVO (8),
 XIAOMI (4). See `docs/remaining-work.md` §1.
+
+## Loader classification
+
+All 528 shipped `programs.bin` files, after decryption with the recovered key:
+
+| Class | Count | Meaning |
+|---|---|---|
+| ELF firehose loader | 495 | usable; this is what the Qualcomm path needs |
+| ARM pre-loader container | 6 | a second container format (`container.py`); not a firehose loader |
+| ELF with one corrupted byte | 2 | `7f 45 4c 45` instead of `7f 45 4c 46`; the rest parses |
+| correctly-encrypted empty file | 2 | provably empty, not a missing key |
+| undetermined | 23 | only 4 distinct files; see `docs/remaining-work.md` |
+
+So "495 loaders ok" is not 33 failures of one kind — it is four different
+situations, three of which are now explained.
+
+## Slots vs rows
+
+2 228 of the 2 230 `method` slots in the tree are reachable: 3 slots belong to
+`method` rows whose `Devices` value has no matching `<name>` row, so the tool's
+`info.Devices.Contains(brand & " " & model)` match can never fire for them.
 
 ## Per-device matrix
 
