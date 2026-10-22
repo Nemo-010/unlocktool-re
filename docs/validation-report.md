@@ -130,6 +130,16 @@ These run when `UNLOCKTOOL_COLOKTOOL` points at a decoded `ColokTool.exe`, and
 skip otherwise, so the repo stays honest about which claims are currently
 re-checked.
 
+### 1.5c MTK scatter parsing
+
+| Claim | Test |
+|---|---|
+| All 158 `android.txt` files parse | `test_scatter.TestRealScatterFiles.test_every_android_txt_parses` |
+| All 158 declare `platform:` | `test_platform_is_recorded_for_every_file` |
+| All 158 describe an `frp` partition | `test_every_scatter_declares_an_frp_partition` |
+| Both indentation variants parse identically | `test_indented_variant_parses_identically` |
+| `file_name: NONE` is not a download | `test_downloads_only_counts_real_payloads` |
+
 ### 1.6 Local account / licence
 
 `test_auth.py` (19 tests) covers the `Check00` control flow, the
@@ -146,6 +156,7 @@ case-insensitive `UserName`/`Email` match, the password comparison, the
 | MTK command framing (48-byte payload, `EF EE EE FE` frame) | `mtk.py`, `test_mockdevice.py` | the client side is recovered from IL, but there is no captured traffic to compare against |
 | Device reply format (magic + status + echoed length) | `mockdevice.py` | the real magic is a runtime value from the DA handshake (`Port.magichex`), not a compile-time constant |
 | Erase/write/patch sequencing against a device | `plan.py`, `test_plan.py` | no device attached |
+| OPPO `.ofp` container offsets | `ofp.py`, `test_ofp.py` | no `.ofp` ships in the archive, so the reader is only exercised against fixtures built to the same rules |
 | Transport failure handling (silent device, bad magic, error status, short reply) | `test_mockdevice.TestFailureModes` | these are the *client's* reactions, which are recovered; the device's real reactions are not |
 
 `MockDevice.assumption` records the simulated status in the code itself, and

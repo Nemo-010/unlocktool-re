@@ -538,3 +538,31 @@ second artefact — the merged-in tool that owns them (PrimeToolX or the
 - **Confirmed**: yes, from the IL literal.
 - **Status**: `validated` (`tests/test_ildump.py::TestOperationResolution`
   covers the surrounding control flow).
+
+## R40 — The OPPO `.ofp` container layout
+
+- **Hypothesis**: `.ofp` is opaque.
+- **Artefacts**: `ColokTool.OFPExtractor.GetXml`, `Unpack`, `HexToDec`, `bulat`.
+  The IL gives the whole layout:
+
+      probe:  seek(file_length + 16 - page_size); read 4 bytes
+              -> hex -> ToLower -> Contains("ef7c")        // raw hex, no Unpack
+              page_size = 512 first, then 4096
+      base       = file_length - page_size
+      xml_offset = read_u32_le(base + 20) * page_size
+      xml_size   = read_u32_le(base + 24)
+      xml        = read(xml_offset, ceil16(xml_size))
+
+  `Unpack(hex)` reverses the 2-character *group* order, so the stored integers
+  are little-endian: `01 00 00 00` -> `"01000000"` -> `"00000001"` -> 1.
+  `HexToDec(s)` is `Val("&H" + s)`.
+- **Experiments**: implemented in `src/unlocktool_re/ofp.py` and exercised
+  against synthetic fixtures at both page sizes.
+- **Confirmed**: the reader round-trips its own fixtures and reproduces the
+  probe order (512 preferred).
+- **Status**: **simulated**, not verified — no `.ofp` ships in the archive, so
+  there is nothing to validate the offset arithmetic against. This is recorded
+  as simulated in `docs/validation-report.md`.
+- **Note**: an early reading had the probe going through `Unpack`; the IL at
+  IL_0076..IL_0086 shows BytesToHextring -> ToLower -> Contains with no Unpack
+  call, so that was wrong and is retracted.
