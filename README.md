@@ -20,7 +20,7 @@ Everything here starts by taking that installer apart.
 | MediaTek xflash command framing | `src/unlocktool_re/mtk.py` | verified (client side) |
 | Device side of both protocol families | `src/unlocktool_re/mockdevice.py` | **simulated** |
 
-135 tests, 0 failures. `docs/validation-report.md` separates what is verified,
+142 tests, 0 failures. `docs/validation-report.md` separates what is verified,
 what is simulated and what is merely inferred.
 
 ## Quick start
@@ -59,6 +59,10 @@ All from the shipped artefacts; see `docs/compatibility-matrix.md`.
 | Scripts that parse | 968 |
 | Advertised operations that build a complete plan | **841** |
 | Steps across those plans | 46 447 |
+| Loaders that are an ARM pre-loader container, not ELF | 6 |
+| Loaders that are a correctly-encrypted empty file | 2 |
+| Loaders with one corrupted byte | 2 |
+| Distinct undetermined loader files | 4 (copied into 23 folders) |
 
 ## The one thing worth knowing first
 
@@ -86,6 +90,7 @@ src/unlocktool_re/
   crypto.py       programs.bin AES-256-CBC (pure Python + OpenSSL fast path)
   datatree.py     brand XML indexes, model folders, audit
   firehose.py     Qualcomm rawprogram scripts (program/erase/patch)
+  container.py    the second loader container (ARM pre-loader, not ELF)
   dispatch.py     operation name -> workflow family -> action
   plan.py         operation script -> ordered steps -> execution
   mtk.py          MediaTek xflash framing
@@ -94,9 +99,11 @@ src/unlocktool_re/
 
 docs/
   architecture.md          components, execution flow, dependencies
-  compatibility-matrix.md  generated per-brand table
+  oem-capability-matrix.md per-brand summary and loader classification
+  compatibility-matrix.md  generated per-device tables
   protocol-report.md       both protocol families, encryption, auth
-  research-registry.md     20 hypotheses with status
+  data-layouts.md          the four payload layouts merged into data/
+  research-registry.md     30 hypotheses with status
   validation-report.md     verified vs simulated vs inferred
   remaining-work.md        blockers and next experiments
 
@@ -105,7 +112,7 @@ scripts/
   extract_tree.py     extract the data tree from the installer
   build_matrix.py     regenerate docs/compatibility-matrix.md
 
-tests/                135 tests (8 skip without the installer)
+tests/                142 tests (8 skip without the installer)
 artifacts/tree/       extracted data tree (485 MB, git-ignored)
 ```
 

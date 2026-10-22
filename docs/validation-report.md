@@ -95,7 +95,20 @@ The failure breakdown (measured, not estimated):
 | script is empty | 8 |
 | script produced no steps | 1 |
 
-### 1.5 Local account / licence
+### 1.5 The non-ELF loader container
+
+| Claim | Test |
+|---|---|
+| Magic `0x844BDCD1`/`0x73D71034`, header 0x50 | `test_container.TestSynthetic.test_roundtrip` |
+| `payload_len == filesize - 0x50` on all six | `test_container.TestRealPayloads.test_all_six_parse` |
+| Five payloads are ARM32, one is ARM64 | `test_payload_is_arm_code` |
+| A lying `payload_len` is rejected | `test_rejects_length_mismatch` |
+
+Mutation check: setting `payload_len` to a value that does not match the file
+body makes `parse` raise, which is what makes the invariant load-bearing rather
+than decorative.
+
+### 1.6 Local account / licence
 
 `test_auth.py` (19 tests) covers the `Check00` control flow, the
 case-insensitive `UserName`/`Email` match, the password comparison, the
@@ -146,6 +159,10 @@ artefact needed to falsify them is not present.
 | Both documented passwords open the payloads | Disproven: 0/606 with the second (R7) |
 | `Port.magichex` is a compile-time constant | Disproven: it is assigned at runtime (R19) |
 | The tree is internally consistent | Disproven: 1 241 missing scripts, 21 malformed scripts, 166 missing payloads (R14, R15) |
+| The 33 non-ELF loaders are all one problem | Disproven: four distinct causes, two of them fully explained (R26) |
+| A second AES key is a literal in the binary | Disproven: all 18 `FieldRVA` arrays tried, zero hits (R30) |
+| `data/` is one tool's data tree | Disproven: five payload layouts coexist; `_MERGE-BACKUP` shows SAMSUNG going 11 → 201 program rows (R24) |
+| The Odin path is managed code | Disproven: it shells out to `data/dn.exe`, which is not shipped (R28) |
 
 ---
 
