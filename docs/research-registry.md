@@ -353,6 +353,22 @@ Final tally of all 528 shipped loaders, after decryption:
 | correctly-encrypted empty file | 2 |
 | undetermined (4 distinct files) | 23 |
 
+## R30 — There is no second AES key in `ColokTool.exe`
+
+- **Hypothesis**: the 23 undetermined loaders (4 distinct files) use a second
+  password that is also a literal in the binary.
+- **Experiments**: enumerated all 18 `FieldRVA`-initialised byte arrays and
+  extracted every printable run of 6–32 bytes from each. Candidates found:
+  `RDAXTEAM2024`, `RDAXTEAMSEC2025`, `RDAXTEAM`, `gdKa!x5`, `v4.0.30319`.
+  Tried all four plausible ones against the 4 distinct undetermined files
+  through the full KDF + AES path. **Zero hits.**
+- **Confirmed**: no second key is recoverable this way.
+- **Status**: `disproven` for "the second key is a literal in this binary".
+  The undetermined payloads must come from the *merged-in* tools (PrimeToolX /
+  DA-pair), which are not part of this assembly.
+- **Note**: this also means `Loader_Thread` has exactly one key, matching the
+  IL, so the ColokTool path can never use those 23 files.
+
 ## R27 — The `[EDL]` operation scripts are the firehose plan, not a partition map
 
 - **Hypothesis**: the operation scripts are only used by the MTK path.
