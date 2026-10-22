@@ -126,6 +126,42 @@ binary can consume, regardless of `programs.bin`.
 read**, up from the 528 that `programs.bin` alone accounts for. 813 have no
 folder at all, and 31 have only a merged-in foreign layout.
 
+### But only 383 are drivable from the brand index
+
+"Readable" and "drivable" are not the same number, and the difference matters:
+
+| | Models |
+|---|---|
+| Payload folder the binary can read | 715 |
+| …with a `programs.bin` (the EDL path the brand index drives) | 528 |
+| …and at least one operation script that exists | **383** |
+
+The 158 scatter models are **not** in that 383. Their `android.txt` is parsed
+only from a manual `"Choice Scatter Or OFP File !"` dialog
+(`Main.Button2_Click_1`), while the brand-index `[BROM]` path gets its
+partition map from `gpt.readgpt` over the wire. Two unrelated code paths — so
+a scatter file does not make a model drivable from the UI.
+
+Per brand, drivable method rows:
+
+| Brand | Drivable |
+|---|---|
+| OPPO | 122 |
+| VIVO | 108 |
+| SAMSUNG | 62 |
+| ASUS | 28 |
+| REALME | 20 |
+| MEIZU | 17 |
+| LENOVO | 12 |
+| HUAWEI | 7 |
+| INFINIX | 6 |
+| XIAOMI | 1 |
+| **total** | **383** |
+
+XIAOMI's single drivable row out of 348 indexed models is the sharpest result
+in the whole audit: it ships 139 working EDL loaders and 580 advertised
+operations, and exactly one of them has a script.
+
 ## Loader classification
 
 All 528 shipped `programs.bin` files, after decryption with the recovered key:

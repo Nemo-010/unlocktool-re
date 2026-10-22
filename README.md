@@ -52,7 +52,8 @@ All from the shipped artefacts; see `docs/compatibility-matrix.md`.
 | Brand indexes | 16 |
 | Indexed devices | 1 559 |
 | Devices with a payload folder | 746 |
-| Devices with a payload the binary can read (EDL + scatter + Unisoc) | **715** |
+| Devices with a payload the binary can read (EDL + scatter + Unisoc) | 715 |
+| Devices actually drivable from the brand index | **383** |
 | `programs.bin` loaders present | 528 |
 | Loaders that decrypt to ELF | 495 |
 | Advertised operation slots | 2 230 |
