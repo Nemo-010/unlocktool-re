@@ -303,14 +303,20 @@ could not see. We do not claim either.
         off 0x18  u32 load_addr e.g. 0xF800C000
         off 0x1c  u32 payload_len
 
-    and `payload_len == len(file) - hdr_len` holds exactly for all three files
-    I checked (Xiaomi Mi Pro [Leo], Asus Zenfone 2 Go, Vivo Xplay 3S). The
-    remaining header words look like a second (load, len) pair
+    and `payload_len == len(file) - hdr_len` holds exactly for **all six**
+    files. The remaining header words look like a second (load, len) pair
     (`0x00049000, 0xF8055000`), a sector size (`0x100`), a chunk size
-    (`0x1800`) and two flag words. The payload is ARM code (`06 00 00 EA`
-    branch trampolines at 0x50). This is a *loader for a loader*: a
-    pre-loader/DA stub, not a firehose ELF, which is why it is not `\x7fELF`
-    and why the tool's `Contains("ELF")` check rejects it.
+    (`0x1800`) and two flag words.
+
+    The payload is ARM code, in two flavours: five are ARM32 (`EA000006`
+    branch trampolines, then `E321F0D3` = `MSR CPSR_c, #0xD3`, i.e. switch to
+    supervisor mode and disable IRQ/FIQ) and one is ARM64 (`D51EC000`,
+    `940002BA` BL, `D65F03C0` RET). This is a pre-loader / download-agent stub,
+    not a firehose ELF, which is why it is not `\x7fELF` and why the tool's
+    `Contains("ELF")` check rejects it.
+
+    Implemented in `src/unlocktool_re/container.py`; the invariant above is
+    the test (`tests/test_container.py`).
   - 20 × `ae 91 a6 a9 …`, all **byte-identical** (one file, sha256
     `612ac4d5…`, copied into 20 folders across OPPO/REALME/VIVO).
   - 2 × `7f 45 4c 45` — a real ELF whose 4th byte is `0x45` instead of `0x46`.
