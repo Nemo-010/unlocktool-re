@@ -292,9 +292,25 @@ could not see. We do not claim either.
 - **Hypothesis**: the 33 non-ELF loaders are all a wrong key.
 - **Artefacts** (after decrypting with the documented key and stripping
   padding):
-  - 6 × `d1 dc 4b 84 …` — a plausible ARM image (`d1 dc 4b 84` then
-    `34 10 d7 73`, then a 13/21-byte length and `ff ff ff ff`); this is a
-    second container format, not garbage.
+  - 6 × `d1 dc 4b 84 …` — **solved: a second, self-describing container**.
+    After PKCS#7 strip the header is
+
+        off 0x00  u32 magic     0x844BDCD1
+        off 0x04  u32 magic2    0x73D71034
+        off 0x08  u32 count     13 or 21
+        off 0x0c  u32[2]        0xFFFFFFFF (unused)
+        off 0x14  u32 hdr_len   0x50
+        off 0x18  u32 load_addr e.g. 0xF800C000
+        off 0x1c  u32 payload_len
+
+    and `payload_len == len(file) - hdr_len` holds exactly for all three files
+    I checked (Xiaomi Mi Pro [Leo], Asus Zenfone 2 Go, Vivo Xplay 3S). The
+    remaining header words look like a second (load, len) pair
+    (`0x00049000, 0xF8055000`), a sector size (`0x100`), a chunk size
+    (`0x1800`) and two flag words. The payload is ARM code (`06 00 00 EA`
+    branch trampolines at 0x50). This is a *loader for a loader*: a
+    pre-loader/DA stub, not a firehose ELF, which is why it is not `\x7fELF`
+    and why the tool's `Contains("ELF")` check rejects it.
   - 20 × `ae 91 a6 a9 …`, all **byte-identical** (one file, sha256
     `612ac4d5…`, copied into 20 folders across OPPO/REALME/VIVO).
   - 2 × `7f 45 4c 45` — a real ELF whose 4th byte is `0x45` instead of `0x46`.
