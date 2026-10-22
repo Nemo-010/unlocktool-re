@@ -317,8 +317,6 @@ could not see. We do not claim either.
 
     Implemented in `src/unlocktool_re/container.py`; the invariant above is
     the test (`tests/test_container.py`).
-  - 20 × `ae 91 a6 a9 …`, all **byte-identical** (one file, sha256
-    `612ac4d5…`, copied into 20 folders across OPPO/REALME/VIVO).
   - 2 × `7f 45 4c 45` — a real ELF whose 4th byte is `0x45` instead of `0x46`.
     Patched to `0x46`, the OPPO A71 header parses as ELF32 `ET_EXEC`,
     `e_machine=0x28` (ARM), `e_phoff=52`, `e_phentsize=32`, `e_phnum=9`, and
@@ -333,13 +331,27 @@ could not see. We do not claim either.
     shipped `Vivo iQOO 9 SE 5G [PD2154F]` and `Vivo iQOO Pro [PD1916]`
     payloads contain. So the vendor shipped a correctly-encrypted empty file
     in two folders; there is no missing key here at all.
-  - 1 × `64 61 74 61 20 64 64 63 68` ("data ddch").
-  - 1 × `aa 43 3b 30 …`, 1 × `dc 7b bd 85 …` — two more distinct keys or
-    formats.
+  - 1 × `64 61 74 61 20 64 64 63 68` ("data ddch" then `5E 59 57 00`) —
+    OPPO A77T. Starts with the literal ASCII `data ddch`, so it is a
+    container whose magic is text, not a wrong key.
+  - 1 × `aa 43 3b 30 …` (XIAOMI Poco F4) and 1 × `dc 7b bd 85 …` (XIAOMI
+    Civi 2, 16 bytes) — two more distinct keys or formats.
+  - 20 × `ae 91 a6 a9 …` — **one file, copied 20 times** (same sha256,
+    661 280 bytes, across OPPO, REALME and VIVO).
 - **Confirmed**: the causes are heterogeneous, and two of the five groups are
   now fully explained (empty files, one corrupted byte).
 - **Status**: `validated` for the classification; `blocked` on the key for the
-  remaining 26.
+  remaining 23 (which are only 4 distinct files).
+
+Final tally of all 528 shipped loaders, after decryption:
+
+| Class | Count |
+|---|---|
+| ELF firehose loader | 495 |
+| ARM pre-loader container (R26, `container.py`) | 6 |
+| ELF with one corrupted byte | 2 |
+| correctly-encrypted empty file | 2 |
+| undetermined (4 distinct files) | 23 |
 
 ## R27 — The `[EDL]` operation scripts are the firehose plan, not a partition map
 
