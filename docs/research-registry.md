@@ -453,6 +453,20 @@ Final tally of all 528 shipped loaders, after decryption:
 - **Limitation**: the payload itself is not decoded. The `fields` triple
   varies with the magic revision and payload size class, which suggests it
   encodes a length/CRC rather than being a constant.
+- **Follow-up measurement**: the 40 blobs carry only **19 distinct payloads**
+  (each model ships twice, byte-identically, in the plain and `_DA_BR`
+  folders), and `SM-A156U.B5.mt6835` / `SM-A156W.B5.mt6835` share one payload
+  between them. The payload also does not begin with ELF or an ARM branch, so
+  it is not a DA image in the same sense as the two containers already solved.
+
+## R38 — `data/frp/SignedKey.txt` is a placeholder
+
+- **Hypothesis**: the tree ships the public key `UserReg.cekauthfrp` mentions.
+- **Artefacts**: the file is 8 bytes and its entire content is the ASCII word
+  `waiting`. `cekauthfrp` reads it and reports "Signed key not found in
+  data\frp\SignedKey.txt" when absent.
+- **Confirmed**: the signing feature is stubbed out in this build.
+- **Status**: `validated` (file contents read).
 
 ## R35 — Two `_DA_BR` folders have their contents swapped
 

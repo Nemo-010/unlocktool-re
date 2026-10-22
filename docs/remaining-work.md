@@ -60,17 +60,38 @@ mock's reply framing is an assumption.
 **Why it matters**: it would move MTK from "simulated" to "verified" without
 hardware.
 
-## 2b. Read the MTK DA pairs (23 folders)
+## 2b. Decode the `MotoKingProS` payload
 
-23 SAMSUNG folders ship `<Model>_DA_BR.bin` (1.5–1.8 MB) + `<Model>_auth_sv5.auth`
-(1 049 756 bytes, a suspiciously round size) and a two-line advert as the only
-README. Those are MTK Download Agents, which this binary never reads — it uses
-its own `programs.bin` route.
+**Status**: the container is parsed (`motoking.py`), the filename field is
+decoded, but the ~1 049 686-byte payload is opaque.
 
-**Next experiments**: the `.auth` blobs are all 1 049 756 bytes with a 2 269-
-byte `auth.auth` sibling in 23 other folders. Diff two of them: if only a few
-bytes differ, the common part is a template and the differing part is per-model
-signing material.
+**Next experiments**:
+
+1. The three `fields` triples vary with magic revision *and* payload size
+   class. Check whether `fields[2]` correlates with `len(payload)` — if it
+   does, it is a length/CRC and the payload start is confirmed.
+2. Compare two blobs of the same magic and same payload length byte for byte.
+   If they differ only in a small region, the rest is a template (a DA image)
+   and the differing region is per-model signing material.
+3. The payload should begin with either an ELF header or an ARM branch, like
+   the two containers already solved. Check the first 16 bytes of each.
+
+## 2c. The `MMM` auth container's 256-byte trailer
+
+**Status**: the container parses (three blocks + 256-byte trailer), and the
+trailer size matches the `sig size_in_bytes="256"` in `EMMCBootFlash`. Whether
+it *is* that signature is not established.
+
+**Next experiment**: check whether the 256 bytes verify against anything in
+the tree (a public key in `data/frp/SignedKey.txt`, which
+`UserReg.cekauthfrp` reads, is the obvious candidate).
+
+## 2d. What `data/DA/Extras/*.auth` are for
+
+`data/DA/Extras/` holds exactly two `MMM` containers, `new_auth_sv5.auth` and
+`old_auth_sv5.auth`. They are the only parseable ones in the tree. Diffing
+them gives the template; finding what references them would say whether the
+tool ever sends them.
 
 ## 3. Determine whether `usb_ids.default_ids` is live
 

@@ -171,6 +171,24 @@ in the tree where the chipset is stated per model for these folders.
 
 Implemented in `src/unlocktool_re/motoking.py`.
 
+### How many distinct auth payloads are there?
+
+Only **19 distinct payloads** across the 40 blobs, because each model's blob
+ships twice (once in `SM-XXXX [Bx]/` and once in `SM-XXXX.Bx.mtNNNN_DA_BR/`).
+The duplication is exact — zero differing bytes.
+
+One model is reusing another's auth payload:
+
+| Payload hash | Copies | Models |
+|---|---|---|
+| `233c58963dbc…` | 4 | `SM-A156U.B5.mt6835` **and** `SM-A156W.B5.mt6835` |
+| every other | 2 | one model each |
+
+So 20 model folders share 19 payloads, and `SM-A156U` / `SM-A156W` — two
+different US carrier variants of the same base model — are signed with the
+same auth blob. Whether that is intentional (same firmware family) or a merge
+error cannot be decided from the tree alone.
+
 ### A merge defect this exposed
 
 Two `_DA_BR` folders hold the *other* model's blob:
