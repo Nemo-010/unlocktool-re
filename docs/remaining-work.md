@@ -2,27 +2,46 @@
 
 Ordered by how much uncertainty each item removes per unit of effort.
 
-## 1. Find the key for the 63 non-decrypting `programs.bin` payloads
+## 1. Identify the last 4 undecrypted loader files
 
-**Blocker.** 63 of 606 loaders do not decrypt to ELF with either documented
-password. 17 distinct ciphertext prefixes exist, so this is not one stray
-file.
+**Status after this round.** The 33 non-ELF loaders are no longer one mystery:
 
-**Next experiments**, in order:
+| Class | Count | Resolved |
+|---|---|---|
+| ARM pre-loader container | 6 | yes — `container.py`, `payload_len` invariant |
+| ELF with one corrupted byte | 2 | yes — byte 3 is `0x45`, rest parses |
+| correctly-encrypted empty file | 2 | yes — byte-identical to `encrypt(b'')` |
+| undetermined | 23 | **no — but only 4 distinct files** |
 
-1. Search the whole 2.3 GB image for printable strings that look like a
-   password (`^[A-Z0-9]{8,24}$`) and try each through the same KDF. The image
-   is already parsed; this is a one-pass scan over `slice_offset`.
-2. Check the two payloads whose plaintext begins `01 45 4C 46` ("\x01ELF") —
-   that looks like a length-prefixed ELF written by a different code path, not
-   a wrong key. Trace `Loader_Thread.EMMCMiFlash` for a second writer.
-3. Check the 2 payloads whose plaintext begins `10 10 10 10`. Tested: a
-   genuine all-`0x10` ciphertext block decrypts to random bytes, so this is
-   *not* a PKCS#7 padding artefact. It is either a different key or a
-   plaintext that really starts with 0x10 bytes.
+The 23 are: 20 copies of one 661 280-byte file (`ae 91 a6 a9 …`), one OPPO
+A77T file starting `data ddch` (ASCII magic), one XIAOMI Poco F4 file
+(`aa 43 3b 30 …`) and one 16-byte XIAOMI Civi 2 file (`dc 7b bd 85 …`).
 
-**Why it matters**: it is the difference between "543/606 loaders usable" and
-"606/606".
+**Next experiments**:
+
+1. The 20-copy file: since 20 folders across three brands share it byte for
+   byte, it is one chipset's loader and probably comes from the *same* other
+   tool as the PrimeToolX folders. Check whether it appears under a different
+   name in a `_DA_BR`/PrimeToolX folder.
+2. `data ddch`: the ASCII magic suggests a text-tagged container. Search the
+   whole image for other files starting `data ` and compare headers.
+3. The 16-byte file: `encrypt(b'')` is 16 bytes but a *different* 16 bytes, so
+   this one is genuinely some other key or a 16-byte secret. Brute-force is not
+   worth it; look for a second key literal in the binary first.
+
+**Why it matters**: it is the difference between "495/528 loaders usable" and
+"all of them classified".
+
+## 1b. Find the second AES key, if there is one
+
+The 23 undetermined files above, plus the 33 loaders the tool *accepts but
+cannot use*, suggest at least one more key exists somewhere. `Loader_Thread`
+has exactly one `key` field, so the second key — if it exists — is in another
+class or in the merged-in tools' payloads, not in `ColokTool.exe`.
+
+**Next experiment**: enumerate every `FieldRVA`-initialised byte array in the
+binary (there are 18) and try each 12-to-24-byte one as a password. This is
+cheap: the KDF is 1000 iterations and there are 606 files.
 
 ## 2. Recover the device-side MTK reply format
 
@@ -40,6 +59,18 @@ mock's reply framing is an assumption.
 
 **Why it matters**: it would move MTK from "simulated" to "verified" without
 hardware.
+
+## 2b. Read the MTK DA pairs (23 folders)
+
+23 SAMSUNG folders ship `<Model>_DA_BR.bin` (1.5–1.8 MB) + `<Model>_auth_sv5.auth`
+(1 049 756 bytes, a suspiciously round size) and a two-line advert as the only
+README. Those are MTK Download Agents, which this binary never reads — it uses
+its own `programs.bin` route.
+
+**Next experiments**: the `.auth` blobs are all 1 049 756 bytes with a 2 269-
+byte `auth.auth` sibling in 23 other folders. Diff two of them: if only a few
+bytes differ, the common part is a template and the differing part is per-model
+signing material.
 
 ## 3. Determine whether `usb_ids.default_ids` is live
 
