@@ -298,19 +298,26 @@ could not see. We do not claim either.
   - 20 × `ae 91 a6 a9 …`, all **byte-identical** (one file, sha256
     `612ac4d5…`, copied into 20 folders across OPPO/REALME/VIVO).
   - 2 × `7f 45 4c 45` — a real ELF whose 4th byte is `0x45` instead of `0x46`.
-    Patched to `0x46` the ELF32/ELF64 headers parse cleanly with sane
-    `e_phoff`, `e_phentsize` and in-file segment ranges, so the rest of the
-    file is intact. Cause: a single corrupted byte in the source file.
-  - 2 × `10 10 10 10` × 16 (16 bytes) — decrypts to all-`0x10`, which is what
-    an **empty file** encrypted with this key produces (PKCS#7 pads empty to
-    16 × `0x10`). Tested: a genuine all-`0x10` *ciphertext* block decrypts to
-    random bytes, so this is the padding, not a wrong key.
+    Patched to `0x46`, the OPPO A71 header parses as ELF32 `ET_EXEC`,
+    `e_machine=0x28` (ARM), `e_phoff=52`, `e_phentsize=32`, `e_phnum=9`, and
+    its first three program headers are all inside the file — so the rest of
+    the image is intact and only byte 3 is wrong. (The XIAOMI Poco F1 one is
+    ELF64 and also parses once byte 3 is fixed.) Cause: one corrupted byte in
+    the source file, which the tool's `Contains("ELF")` check would *accept*
+    and then fail on at load time.
+  - 2 × `10 10 10 10` × 16 (16 bytes) — **proven empty files**.
+    `crypto.encrypt_programs_bin(b'')` produces exactly
+    `5e17fe6eafcebb035692b623e88d90ae`, which is byte-identical to what the
+    shipped `Vivo iQOO 9 SE 5G [PD2154F]` and `Vivo iQOO Pro [PD1916]`
+    payloads contain. So the vendor shipped a correctly-encrypted empty file
+    in two folders; there is no missing key here at all.
   - 1 × `64 61 74 61 20 64 64 63 68` ("data ddch").
   - 1 × `aa 43 3b 30 …`, 1 × `dc 7b bd 85 …` — two more distinct keys or
     formats.
-- **Confirmed**: the causes are heterogeneous.
+- **Confirmed**: the causes are heterogeneous, and two of the five groups are
+  now fully explained (empty files, one corrupted byte).
 - **Status**: `validated` for the classification; `blocked` on the key for the
-  remaining ones.
+  remaining 26.
 
 ## R27 — The `[EDL]` operation scripts are the firehose plan, not a partition map
 
