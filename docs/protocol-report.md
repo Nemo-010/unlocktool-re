@@ -63,12 +63,64 @@ The observed command set, from method names and literals in
 | `getstorageinfo` | `cmd_getstorageinfo` |
 | `nop` | keep-alive between long operations |
 
+### 1.1b The EDL path honours `SECTOR_SIZE_IN_BYTES`; the MTK path does not
+
+`EMMCBootFlash` parses the operation script itself before handing it to
+`ProcessQcomFlash`. The relevant IL, in order:
+
+```
+"program" / "erase" / "patch"          // element name dispatch, ToLower'd
+"SECTOR_SIZE_IN_BYTES"  -> field:SectorSize
+  SectorSize == "512"   -> TypeMemory = "emmc"
+  SectorSize == "4096"  -> TypeMemory = "ufs"
+```
+
+So the firehose path reads the declared sector size and uses it to choose
+eMMC vs UFS addressing, and the script's `SECTOR_SIZE_IN_BYTES` reaches
+`WriteFlash` as its first argument. That is correct behaviour.
+
+The MTK path (`thread_handling.FormatFRP`, `xflash_lib.ReadSector`) does
+**not** do this: it multiplies by a literal `512.0`. On a 4096-byte-sector
+script that address is 8x short. The two paths disagree about the same field,
+which is the concrete defect recorded as R21.
+
+`EMMCBootFlash` also handles all three element kinds — `program`, `erase` and
+`patch` — so the Qualcomm path consumes the whole rawprogram vocabulary, not
+just `<program>`.
+
 ### 1.2 What the tool expects back
 
 The response is matched on `ACK`/`NAK` text and on a `<response value="..."/>`
 substring. Because the tool only ever *compares strings*, the reproduction
 does not need a device: the request strings and the comparison logic are the
 whole of the client side.
+
+### 1.2b The firehose command exchange, as the IL shows it
+
+After `configure`, `EMMCBootFlash` loops:
+
+```
+SendXml(pkt_fhConfig(TypeMemory), 4)
+CekResponseConfig(...)              -> Contains("ack")
+    Contains("xml")                 -> "FAILED TO RESPON CPU!"
+    Contains("Only nop and sig tag")-> signature/auth path:
+        SendXml("<data><sig TargetName=\"sig\" size_in_bytes=\"256\" verbose=\"1\"/></data>")
+        IsAck(...)
+        DiskWrite(Resources.skip)
+        DiskRead(8) -> Contains("\"ACK\"")
+        else Contains("\"NAK\"") -> "Make sure you have select correct
+                                     server loader or current SoC is not support!"
+        else Contains("Signature Verification Failed")
+```
+
+Three things this pins down that were previously only inferred:
+
+1. the exact `sig` request the tool sends for a signed loader,
+2. that a loader failure surfaces as `NAK` or `Signature Verification Failed`
+   and is reported as a *wrong-loader* error, not a transport error,
+3. that `configure` is sent with a packet built by `Firehose_pkts.pkt_fhConfig`
+   from `TypeMemory` (`emmc` / `ufs`), which is itself derived from the
+   script's `SECTOR_SIZE_IN_BYTES`.
 
 ### 1.3 The loader
 
