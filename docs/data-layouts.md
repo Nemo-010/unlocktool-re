@@ -209,6 +209,36 @@ Two folders (`Samsung Galaxy A03 Core U2 [SM-A035F]`, `Samsung Galaxy A03 U2
 nothing else. That is the Unisoc/SPD download-agent pair, matching
 `ColokTool.SPDLoader.SPDBootPLUS` which looks for `/fdl1.bin`.
 
+## The decisive test
+
+`ColokTool.exe`'s own string literals decide which layouts are *its* contract.
+Searching the image for each marker (managed literals are UTF-16LE in `#US`):
+
+| Literal | In the binary? |
+|---|---|
+| `programs.bin` | **yes** |
+| `operations.xml` | **yes** |
+| `accounts.json` | **yes** |
+| `config.ini` | **yes** |
+| `fdl1` / `fdl2` | **yes** (Unisoc path) |
+| `dn.exe` | **yes** (Samsung Odin wrapper) |
+| `device_info` | no |
+| `model.json` | no |
+| `qualcomm.pyd` | no |
+| `PrimeToolX` | no |
+| `MotoKing` | no |
+| `DA_BR` | no |
+| `auth_sv5` | no |
+| `loader.elf` | no |
+| `_MERGE-BACKUP` | no |
+
+So layouts A, B, C2, C3 and F are foreign to this binary: it cannot read them,
+and their presence in `data/` is purely a packaging artefact of the merge. Only
+E (its own `programs.bin` tree) and D (`fdl1`/`fdl2`) are its contract.
+
+This is asserted in `tests/test_ildump.py::TestMergedLayoutsAreNotReferenced`,
+which will fail if a future build starts referencing any of them.
+
 ## Why this matters for the compatibility matrix
 
 `scripts/build_matrix.py` counts a model as having a payload only when

@@ -20,7 +20,7 @@ Everything here starts by taking that installer apart.
 | MediaTek xflash command framing | `src/unlocktool_re/mtk.py` | verified (client side) |
 | Device side of both protocol families | `src/unlocktool_re/mockdevice.py` | **simulated** |
 
-170 tests, 0 failures. `docs/validation-report.md` separates what is verified,
+172 tests, 0 failures. `docs/validation-report.md` separates what is verified,
 what is simulated and what is merely inferred.
 
 ## Quick start
@@ -61,6 +61,7 @@ All from the shipped artefacts; see `docs/compatibility-matrix.md`.
 | Steps across those plans | 46 447 |
 | Loaders that are an ARM pre-loader container, not ELF | 6 |
 | Loaders that are a correctly-encrypted empty file | 2 |
+| Foreign payload layouts merged into `data/` that the binary never reads | 4 |
 | `_auth_sv5.auth` files that are MMM containers vs MotoKingPro blobs | 2 vs 40 |
 | Loaders with one corrupted byte | 2 |
 | Distinct undetermined loader files | 4 (copied into 23 folders) |
@@ -118,7 +119,7 @@ scripts/
   extract_tree.py     extract the data tree from the installer
   build_matrix.py     regenerate docs/compatibility-matrix.md
 
-tests/                170 tests
+tests/                172 tests
 artifacts/tree/       extracted data tree (485 MB, git-ignored)
 ```
 

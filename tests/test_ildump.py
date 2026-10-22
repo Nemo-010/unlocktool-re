@@ -273,3 +273,42 @@ class TestSamsungWrapper(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@need_exe
+class TestMergedLayoutsAreNotReferenced(unittest.TestCase):
+    """docs/data-layouts.md: the merged-in layouts are foreign to this binary.
+
+    This is the decisive test for the whole "data/ is a merge" claim: if the
+    binary mentioned any of these filenames it would be reading them, and the
+    four extra layouts would be part of *its* contract.
+    """
+
+    # `dn.exe` is deliberately NOT in this list: ColokTool *does* reference it
+    # (Tread_SAMSUNG shells out to it), which is R28, not a counter-example.
+    FOREIGN = ['device_info', 'model.json', 'qualcomm.pyd', 'PrimeToolX',
+               'MotoKing', 'DA_BR', 'auth_sv5', 'loader.elf',
+               '_MERGE-BACKUP', 'prime']
+
+    def test_no_foreign_layout_is_referenced(self):
+        raw = self._exe()
+        for lit in self.FOREIGN:
+            self.assertFalse(self._has(raw, lit),
+                             'ColokTool.exe references %r' % lit)
+
+    def test_the_layouts_it_does_reference(self):
+        raw = self._exe()
+        for lit in ('programs.bin', 'operations.xml', 'fdl1', 'fdl2',
+                    'accounts.json', 'config.ini', 'dn.exe'):
+            self.assertTrue(self._has(raw, lit),
+                            'expected %r in the image' % lit)
+
+    @staticmethod
+    def _has(raw, lit):
+        """Managed string literals live in the #US heap as UTF-16LE."""
+        return lit.encode() in raw or lit.encode('utf-16le') in raw
+
+    @staticmethod
+    def _exe():
+        with open(DECODED, 'rb') as fh:
+            return fh.read()
