@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+artifacts/tree/
+artifacts/matrix.json
+parts/
+*.7z
+*.exe
