@@ -407,6 +407,43 @@ Final tally of all 528 shipped loaders, after decryption:
 - **Status**: `validated`. This is the single largest boundary on the whole
   investigation: five external dependencies are referenced and none ship.
 
+## R39 — The last 4 undetermined loader files: blocked, with evidence
+
+The 23 remaining non-decrypting `programs.bin` files are only **4 distinct
+files**. Recorded here so a later pass does not repeat the work.
+
+| File | Size | Entropy | Head | Note |
+|---|---|---|---|---|
+| OPPO A77T [CPH1715] | 366 000 | 7.975 | ASCII `data ddch^YW` | text magic, then structured words |
+| Realme 9 5G SE + 19 folders | 661 280 | 8.000 | `ae 91 a6 a9 57 e4 34 cc` | one file, copied 20× |
+| Xiaomi Poco F4 [Munch] | 742 512 | 8.000 | `aa 43 3b 30 de 9c 92 55` | |
+| Xiaomi Civi 2 [Ziyi] | 16 | 4.000 | `dc 7b bd 85 5c 12 21 1a` | 16 bytes, not `encrypt(b'')` |
+
+**Experiments already performed and their results:**
+
+1. *Try every password literal in the binary.* All 18 `FieldRVA` arrays were
+   scanned for printable runs; the candidates are `RDAXTEAM2024`,
+   `RDAXTEAMSEC2025`, `RDAXTEAM`, `gdKa!x5`, `v4.0.30319`. All four plausible
+   ones were run through the full KDF + AES path against the 4 files.
+   **Zero hits.** (R30)
+2. *Check for a length-prefixed ELF.* No file begins `01 45 4C 46`.
+3. *Check for PKCS#7-of-empty.* Only 2 files are (and they are accounted for
+   separately); these 4 are not.
+4. *Check the OPPO A77T file for an ARM image.* The body after the 16-byte
+   header is not ARM32/ARM64 code either in place or byte-swapped per dword.
+   It is high-entropy with a repeated 3-byte-ish pattern, i.e. still
+   encrypted.
+5. *Check the 20-copy file's provenance.* It is byte-identical across OPPO,
+   REALME and VIVO, so it is one chipset's loader from one source, not a
+   per-model artefact.
+
+**Why this is `blocked` and not `disproven`:** the payloads are still
+encrypted; the key is not in this binary. The next useful experiment needs a
+second artefact — the merged-in tool that owns them (PrimeToolX or the
+`MotoKing` vendor) — not more work on this one.
+
+**Status**: `blocked`.
+
 ## R31 — `_auth_sv5.auth` names two unrelated formats
 
 - **Hypothesis**: the 42 `_auth_sv5.auth` files are one kind of thing.

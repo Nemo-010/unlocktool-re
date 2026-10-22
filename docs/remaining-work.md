@@ -17,20 +17,24 @@ The 23 are: 20 copies of one 661 280-byte file (`ae 91 a6 a9 …`), one OPPO
 A77T file starting `data ddch` (ASCII magic), one XIAOMI Poco F4 file
 (`aa 43 3b 30 …`) and one 16-byte XIAOMI Civi 2 file (`dc 7b bd 85 …`).
 
-**Next experiments**:
+**Already tried, with results** (do not repeat):
 
-1. The 20-copy file: since 20 folders across three brands share it byte for
-   byte, it is one chipset's loader and probably comes from the *same* other
-   tool as the PrimeToolX folders. Check whether it appears under a different
-   name in a `_DA_BR`/PrimeToolX folder.
-2. `data ddch`: the ASCII magic suggests a text-tagged container. Search the
-   whole image for other files starting `data ` and compare headers.
-3. The 16-byte file: `encrypt(b'')` is 16 bytes but a *different* 16 bytes, so
-   this one is genuinely some other key or a 16-byte secret. Brute-force is not
-   worth it; look for a second key literal in the binary first.
+1. Every `FieldRVA` literal in the binary as a password — zero hits (R30).
+2. Length-prefixed ELF (`01 45 4C 46`) — none.
+3. PKCS#7-of-empty — only the 2 already accounted for.
+4. ARM32/ARM64 detection on the OPPO A77T body, in place and dword-swapped —
+   neither; it is still encrypted.
+5. The 20-copy file is byte-identical across OPPO/REALME/VIVO, so it is one
+   chipset loader, not a per-model artefact.
+
+**Next experiments that need a new artefact, not more work on this one:**
+
+1. Find the merged-in tool that owns them. The OPPO A77T file's `data ddch`
+   magic is the best lead: search the Electrosphere for that literal.
+2. Ask the vendor. There is no in-tree documentation for these four.
 
 **Why it matters**: it is the difference between "495/528 loaders usable" and
-"all of them classified".
+"all of them classified". See R39 for the full evidence table.
 
 ## 1b. Find the second AES key, if there is one
 
