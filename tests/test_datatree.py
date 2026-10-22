@@ -192,8 +192,8 @@ class TestMtkFraming(unittest.TestCase):
         parsed = mtk.parse_frame(mtk.frame(cmd))
         self.assertEqual(parsed['cmd'], 1)
         self.assertEqual(parsed['partition_selector'], 0)
-        self.assertEqual(parsed['start_byte'], (8584 * 512) << 2)
-        self.assertEqual(parsed['length_bytes'], (128 * 512) << 2)
+        self.assertEqual(parsed['start_value'], 8584 * 512)
+        self.assertEqual(parsed['length_value'], 128 * 512)
 
     def test_boot1_selector(self):
         cmd = mtk.build_read_command('boot1', 1, 2)
@@ -212,12 +212,12 @@ class TestMtkFraming(unittest.TestCase):
 
     def test_reserved_is_32_zero_bytes(self):
         cmd = mtk.build_format_command('x', 0, 0)
-        self.assertEqual(cmd[16:], b'\x00' * 32)
-        self.assertEqual(len(cmd), 48)
+        self.assertEqual(cmd[24:], b'\x00' * 32)
+        self.assertEqual(len(cmd), 56)
 
     def test_reject_bad_frame(self):
         with self.assertRaises(ValueError):
-            mtk.parse_frame(b'\x00' * 48)
+            mtk.parse_frame(b'\x00' * 56)
 
 
 @unittest.skipUnless(have_tree(), 'extracted data tree not available')

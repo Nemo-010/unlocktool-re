@@ -20,7 +20,7 @@ class TestHappyPath(unittest.TestCase):
         self.assertEqual(len(self.dev.received), 1)
         cmd = self.dev.received[0]
         self.assertEqual(cmd['partition_selector'], 0)
-        self.assertEqual(cmd['start_byte'], (8584 * 512) << 2)
+        self.assertEqual(cmd['start_value'], 8584 * 512)
 
     def test_boot1_selector_reaches_device(self):
         self.cli.format_range('boot1', 1, 2)
@@ -34,8 +34,8 @@ class TestHappyPath(unittest.TestCase):
         for i in range(5):
             self.cli.format_range('frp', i * 512, 512)
         self.assertEqual(len(self.dev.received), 5)
-        self.assertEqual([c['start_byte'] for c in self.dev.received],
-                         [i * 512 << 2 for i in range(5)])
+        self.assertEqual([c['start_value'] for c in self.dev.received],
+                         [i * 512 for i in range(5)])
 
 
 class TestFailureModes(unittest.TestCase):
@@ -84,12 +84,13 @@ class TestFailureModes(unittest.TestCase):
 class TestFramingEdges(unittest.TestCase):
     def test_frame_length(self):
         payload = mtk.build_format_command('frp', 0, 0)
-        self.assertEqual(len(mtk.frame(payload)), len(mtk.FRAME_MAGIC) + 48)
+        self.assertEqual(len(payload), mtk.PAYLOAD_LEN)
+        self.assertEqual(len(mtk.frame(payload)), len(mtk.FRAME_MAGIC) + 4 + 56)
 
-    def test_large_values_are_masked_to_32_bits(self):
+    def test_large_values_survive_roundtrip(self):
         payload = mtk.build_format_command('frp', 2 ** 30, 2 ** 30)
         cmd = mtk.parse_frame(mtk.frame(payload))
-        self.assertEqual(cmd['start_byte'], (2 ** 30 << 2) & 0xFFFFFFFF)
+        self.assertEqual(cmd['start_value'], 2 ** 30)
 
     def test_parse_roundtrip(self):
         for part, sel in (('boot1', 1), ('userarea', 8), ('frp', 0)):

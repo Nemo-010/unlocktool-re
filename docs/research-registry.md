@@ -173,13 +173,72 @@ method RID, byte range), never "it looks like".
 
 ## R18 — MTK command framing
 
-- **Hypothesis**: `cmdformat`/`cmdread` build a 24-byte payload wrapped in an
-  xflash frame.
-- **Artefacts**: `xflash_lib::cmdformat`, `cmdread`, `xsend4`;
+- **Hypothesis**: `cmdformat`/`cmdread` build a fixed-size payload wrapped in
+  an xflash frame.
+- **Artefacts**: `xflash_lib::cmdformat`, `cmdread`, `xsend4`, `ForMatSector`;
   `utils::applyshiftKiri2`, `penggenapan8`.
-- **Confirmed**: yes for the *client* side.
-- **Status**: `promising`. The device-side reply format is not recoverable
-  statically (the magic is set at runtime), so it stays simulated.
+- **Experiments**:
+  1. `ForMatSector` writes the frame header with length `0x38` = 56 directly
+     (IL_00AF), pinning the payload at 56 bytes: `cmd(4) + selector(4) +
+     start(8) + length(8) + reserved(32)`.
+  2. `applyshiftKiri2` reverses the *byte order* of the hex text and keeps the
+     width — it is not a shift. `penggenapan8` right-pads to 8 **bytes** (16
+     hex chars), despite its name.
+  3. The pair round-trips: `Hex(8584*512) = "431000"` →
+     `applyshiftKiri2` → `"001043"` → `penggenapan8` → `"0010430000000000"` →
+     read little-endian → `0x431000` = 4 395 008. So the reversal is correct,
+     not a bug. My first reading of it (as `<< 2`) was **wrong** and the
+     implementation was corrected.
+- **Confirmed**: yes for the *client* side, against the IL and against
+  mtkclient's `xflash_param.py` (`Cmd.MAGIC = 0xFEEEEEEF`, matching the frame).
+- **Status**: `validated` for framing; `blocked` for the device side.
+
+## R21 — The callers hard-code a 512-byte sector
+
+- **Hypothesis**: the address the tool sends matches the script's
+  `start_sector * SECTOR_SIZE_IN_BYTES`.
+- **Artefacts**: `thread_handling.FormatFRP` and `xflash_lib.ReadSector` both
+  pass `Conversions.ToString(ToDouble(start_sector) * 512.0)`, with 512
+  literal.
+- **Experiments**: for the ASUS ROG Phone 2 FRP script the declared sector
+  size is 4096 and `start_sector` is 8584, so the tool sends 4 395 008 where
+  the script means 35 160 064 — 8x short.
+- **Confirmed**: yes, as a defect in the tool.  All scripts declaring
+  `SECTOR_SIZE_IN_BYTES="512"` are unaffected; the 4096 ones are not.
+- **Status**: `validated` (`mtk.wire_address(8584)` vs
+  `mtk.wire_address(8584, 4096)`).
+
+## R22 — The EDL path never touches the network
+
+- **Hypothesis**: the `[EDL]` workflow downloads `programs.bin` and the
+  operation script from `Loader_Thread.server`.
+- **Artefacts**: `Loader_Thread.DownloadBytes(string)` is
+  `try { return OfflineData.ReadAllBytes(path); } catch { return new byte[0]; }`
+  — no HTTP at all. `server`/`server2` are the literal `https:///` and are
+  never read by `DownloadBytes`.
+- **Confirmed**: yes. A missing payload yields a zero-length array, which is
+  why the tool then says "Loader Data File corrupt" / "Invalid Loader Data"
+  rather than reporting a network error.
+- **Status**: `validated` (IL read directly; `DownloadBytes` has no other
+  branch).
+
+## R23 — The operation-script resolution order
+
+- **Hypothesis**: the tool reads the script from
+  `data/{Brand}/{Model}/{operation}` and nothing else.
+- **Artefacts**: `Loader_Thread.EMMCBootFlash` IL, in order:
+  1. `File.Exists(root + "\\" + Brand + "\\" + Modelselect + "\\" + operation)`
+  2. if missing: `OperationSupported(root + "\\" + Brand + "\\" + Modelselect)`
+     — reads `{folder}\\operations.xml` and matches `<operation name=...>`
+     against `Qctool.operation`
+  3. if that returns non-empty → "Operation payload missing for this model",
+     else → "Operation not supported by this model"
+  4. otherwise `StringXml = UTF8.GetString(DownloadBytes(Brand + "/" + Model +
+     "/" + operation))`
+- **Confirmed**: yes. This is why the `method` slot, the `operations.xml`
+  entry and the script filename have to be the same string, and why a model
+  can have a working loader yet still refuse an operation.
+- **Status**: `validated` (IL order is unambiguous).
 
 ## R19 — The device-side reply magic is a compile-time constant
 

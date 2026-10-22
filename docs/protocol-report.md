@@ -22,6 +22,25 @@ not have.
 
 ## 1. Qualcomm EDL / firehose
 
+### 1.0 What is local and what is remote
+
+`Loader_Thread.DownloadBytes(string path)` is **local only** in this build:
+
+```csharp
+static byte[] DownloadBytes(string path) {
+    try { return OfflineData.ReadAllBytes(path); }
+    catch { return new byte[0]; }
+}
+```
+
+`OfflineData.ReadAllBytes` resolves against `Application.StartupPath\data`
+with a path-traversal guard and returns an empty array when the file is
+missing. So `Loader_Thread.server` / `server2` (both the literal `https:///`)
+are vestigial: nothing in the EDL path performs an HTTP fetch. A missing
+payload surfaces as a zero-length byte array, which is why the tool then
+reports "Loader Data File corrupt" or "Invalid Loader Data" rather than a
+network error.
+
 ### 1.1 What the tool sends
 
 Firehose is an XML request/response protocol over raw USB bulk endpoints.
@@ -142,18 +161,50 @@ must use a mock rather than the real value (see `mockdevice.py`).
 
 ### 2.4 What the operation scripts mean
 
-Each `method` slot names a file that is a Qualcomm *rawprogram* XML — used by
-the MTK path only as a partition map (label → sector range), because MTK has
-no firehose. Four element kinds occur:
+Each `method` slot names a file that is a Qualcomm *rawprogram* XML. It is
+consumed by the EDL path (`Loader_Thread.EMMCBootFlash` reads it into
+`Loader_Thread.StringXml`, then `ProcessQcomFlash` walks it with an
+`XmlTextReader`); the MTK path uses it only as a partition map, because MTK
+has no firehose.
+
+Confirmed by the IL of `EMMCBootFlash`:
+
+```
+down2 = Brand + "/" + Modelselect + "/" + Qctool.operation
+if not File.Exists(root + "\\" + Brand + "\\" + Modelselect + "\\" + operation):
+    if OperationSupported(root + "\\" + Brand + "\\" + Modelselect).Length > 0
+        log "Operation payload missing for this model"
+        log "expected  data\\Brand\\Model\\operation"
+    else
+        log "Operation not supported by this model"
+    return false
+StringXml = UTF8.GetString(DownloadBytes(down2))     // the rawprogram XML
+```
+
+`OperationSupported` reads `{folder}\operations.xml` and returns the
+`<operation name=...>` that matches `Qctool.operation`, so the two files have
+to agree: the `method` slot, the `operations.xml` entry and the script
+filename are the same string.
+
+Four element kinds occur:
 
 | Element | Meaning | Count (all 989 scripts) |
 |---|---|---|
-| `<program filename="x" label="y">` | write local file `x` to partition `y` | 991 total `program`, of which 1 has a filename |
-| `<program filename="" label="y">` | erase partition `y` | (the other 990) |
+| `<program filename="x" label="y">` | write local file `x` to partition `y` | 241 scripts have at least one write |
+| `<program filename="" label="y">` | erase partition `y` | 334 scripts are erase-only |
 | `<erase start_sector= num_partition_sectors=>` | erase a raw range | 196 |
-| `<patch value= byte_offset= start_sector=>` | write `value` at an offset | 46 214 |
+| `<patch value= byte_offset= start_sector=>` | write `value` at an offset | 46 214 patch rows across 392 scripts |
 
-`<patches>` is only a container.
+`<patches>` is only a container. Of the 968 parseable scripts: 241 contain at
+least one write, 392 are patch-only, 334 are erase-only, 1 is empty after
+parsing.
+
+The element semantics match the public Qualcomm firehose command forms, which
+is an independent cross-check rather than a guess: `edlclient`'s
+`cmd_patch`/`cmd_program`/`cmd_erase`/`cmd_read` emit the same attribute sets
+(`SECTOR_SIZE_IN_BYTES`, `physical_partition_number`, `start_sector`,
+`num_partition_sectors`, `filename`, `label`, `byte_offset`, `size_in_bytes`,
+`value`, `what`).
 
 ---
 

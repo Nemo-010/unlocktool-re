@@ -46,7 +46,8 @@ class MockDevice:
         self.bad_magic = bad_magic
         self.reject = reject
         self.received = []
-        self.inbox = bytearray()
+        self.inbox = bytearray()      # host -> device (frames we consume)
+        self.outbox = bytearray()     # device -> host (replies the client reads)
         self.partitions = {}
         self._erased = []
         self._written = []
@@ -60,18 +61,23 @@ class MockDevice:
         self.pump()
 
     def read(self, n):
-        out = bytes(self.inbox[:n])
-        del self.inbox[:n]
+        out = bytes(self.outbox[:n])
+        del self.outbox[:n]
         return out
 
     # -- framing -----------------------------------------------------------
     def pump(self):
         """Process every complete frame sitting in the inbox."""
-        while len(self.inbox) >= len(mtk.FRAME_MAGIC) + 48:
+        hdr = len(mtk.FRAME_MAGIC) + 4
+        while len(self.inbox) >= hdr:
             if not self.inbox.startswith(mtk.FRAME_MAGIC):
                 raise DeviceError('bad frame magic')
-            frame = bytes(self.inbox[:len(mtk.FRAME_MAGIC) + 48])
-            del self.inbox[:len(frame)]
+            declared, = struct.unpack_from('<I', self.inbox, len(mtk.FRAME_MAGIC))
+            total = hdr + declared
+            if len(self.inbox) < total:
+                return
+            frame = bytes(self.inbox[:total])
+            del self.inbox[:total]
             self.received.append(mtk.parse_frame(frame))
             if self.fail_after is not None and \
                     len(self.received) > self.fail_after:
@@ -79,16 +85,16 @@ class MockDevice:
             self._reply(frame)
 
     def _reply(self, frame):
+        cmd = mtk.parse_frame(frame)
         if self.reject:
             status = 1
         else:
             status = 0
-            cmd = mtk.parse_frame(frame)
-            if cmd['cmd'] == 1:
+            if cmd.get('cmd') == 1:
                 self._erased.append((cmd['partition_selector'],
-                                     cmd['start_byte'], cmd['length_bytes']))
+                                     cmd['start_value'], cmd['length_value']))
         magic = b'\x00\x00\x00\x00' if self.bad_magic else self.magic
-        self.inbox += magic + struct.pack('<II', status, len(frame))
+        self.outbox += magic + struct.pack('<II', status, len(frame))
 
     # -- operation-level API (driven by plan.execute_plan) -----------------
     def _maybe_fail(self):

@@ -149,10 +149,19 @@ Four remote dependencies do exist in the code and are all on the **iOS** side:
 | `Passcode.uploadBackup` | `WebClient.UploadFile` to `Passcode.Link_Web` | backup upload |
 | `Loader_Thread.server` / `server2` | literal `https:///` | placeholder; Qualcomm `DownloadBytes` base |
 
-`Loader_Thread.DownloadBytes` is the one shared helper: for `[EDL]` operations
-it is called with `Brand + "/" + Modelselect + "/programs.bin"` and falls back
-to the local file. With `server` set to `https:///` the remote branch is dead,
-which is what makes the build "offline".
+`Loader_Thread.DownloadBytes` is the one shared helper, and in this build it
+is local-only:
+
+```csharp
+static byte[] DownloadBytes(string path) {
+    try { return OfflineData.ReadAllBytes(path); }
+    catch { return new byte[0]; }
+}
+```
+
+So `server` / `server2` are dead fields, and a missing payload comes back as an
+empty array rather than a network error. That is what makes the Android
+workflows "offline": every input is a file under `data/`.
 
 ## 6. Where the artefacts stop
 
