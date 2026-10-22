@@ -84,22 +84,105 @@ the whole tree where the MTK chipset is stated per model.
 The 23 `X.<ver>.mt<chip>_DA_BR/` folders are byte-identical *nested copies* of
 the 23 `X [<ver>]` folders — the same two files plus the same README.
 
-## Layout C — `auth.auth` only
+## Layout C — `auth.auth` only (23 folders)
 
-23 folders contain exactly one file, `auth.auth` (2 263–2 272 bytes), and
-sometimes a `download.bin` (720–1 315 KiB). The `auth.auth` header is:
+23 folders contain exactly one file, `auth.auth`, of 2 250–2 272 bytes. These
+are **ASCII-mangled copies** of the `MMM` container described below: every one
+of them is 7-bit clean (`max(byte) <= 0x7F`), with `0x3F` (`'?'`) sitting in
+exactly the positions where a high byte belonged — 509 of 2 269 bytes in the
+A15 file. Some transfer step ran them through a text channel that replaced
+every non-ASCII byte with `'?'`, so the block length fields are destroyed and
+the containers can no longer be parsed. Nothing is recoverable from them
+beyond their presence.
+
+## Layout C2 — the `MMM` auth container (2 small + 40 large files)
+
+`_auth_sv5.auth` is used for **two unrelated things**, which is worth knowing
+before treating the name as meaningful:
+
+| Size | Count | What it is |
+|---|---|---|
+| 2 256 / 2 272 | 2 | an `MMM` container, parseable |
+| 1 049 756 – 1 049 762 | 40 | a `MotoKingProS`/`R` blob (see below) |
+
+The `MMM` container (found at `data/DA/Extras/new_auth_sv5.auth` and
+`old_auth_sv5.auth`) parses cleanly with a **u16** length that *includes* the
+8-byte header:
 
 ```
-MMM\x01 38 00 00 00 "FILE_INFO\0\0\0\1\0\0\0\5\0\5\2 \b \0"
+off 0x00  "MMM\x01"  u16 total_len  body[total_len-8]
 ```
 
-with a second `MMM\x01` block at offset 56 that starts `MTK\0\0\0...`. The
-whole file is only 2 269 bytes and has 128 distinct byte values, so it is
-mostly text-ish, not a key blob. The `MTK` marker at offset 64 and the
-`FILE_INFO` marker at offset 8 make this an MTK auth-file container.
+giving exactly three blocks and a 256-byte trailer:
 
-Without the DA that consumes it we cannot say more; see
-`docs/remaining-work.md`.
+| Block | Length | Tag | Meaning |
+|---|---|---|---|
+| 0 | 56 | `FILE_INFO` | header |
+| 1 | 1944 | `MTK\0…` | the DA auth payload |
+| 2 | 16 | zeros | separator |
+| trailer | 256 | — | a 256-byte signature |
+
+The 256-byte trailer is the same size as the `size_in_bytes="256"` in the
+`sig` request `EMMCBootFlash` sends (`docs/protocol-report.md` §1.2b), which is
+a strong hint that this container is a pre-captured auth exchange. The two
+files differ only in the 1944-byte block and the trailer — i.e. per-model
+signing material over a common template.
+
+An earlier attempt read the length as u32 and concluded the files were
+unparseable; that was wrong. The length is u16 and counts the header.
+
+## Layout C3 — `MotoKingProS` / `MotoKingProR`
+
+The 40 large `_auth_sv5.auth` files are a fifth vendor's container:
+
+```
+off 0x00  12 bytes  magic      "MotoKingProS" (34 files) or "MotoKingProR" (6)
+off 0x0c  u32be     version    4
+off 0x10  u32be     field      0x224D1840  (constant)
+off 0x14  u32be     field      0x40C04400 | 0x40C04300
+off 0x18  u32be     field      0x0000F017 | 0x0000F115 | 0x0000F118
+off 0x1c  base64    filename   NUL-terminated, truncated mid-group
+         6 bytes    marker     0C 00 3F 67 3D 00
+                    payload    opaque, ~1 049 686 bytes
+tail      4 bytes   0x00000000
+```
+
+The header integers are **big-endian**; reading them little-endian gives a
+version of 67 108 864 and nonsense fields. The three `fields` triples are not
+constant — they vary with the magic revision and the payload size class:
+
+| Magic | fields | Count |
+|---|---|---|
+| `S` | `224D1840 40C04400 0000F017` | 34 |
+| `R` | `224D1840 40C04300 0000F115` | 4 |
+| `R` | `224D1840 40C04300 0000F118` | 2 |
+
+The `base64` field decodes to the *original filename*, which is how these
+blobs stayed attributable after the merge renamed them:
+
+```
+U00tQTE1NUYuQjUubXQ2Nzg5X2F1dGhfc3Y1Lm   ->  SM-A155F.B5.mt6789_auth_sv5.
+```
+
+The encode is truncated at 40 characters, so the extension is lost; that is
+why the decoded name always ends in a dot. Parsing it recovers the model and
+the **MTK chipset** (`mt6789`, `mt6835`, `mt6833`, `mt6989`) — the only place
+in the tree where the chipset is stated per model for these folders.
+
+Implemented in `src/unlocktool_re/motoking.py`.
+
+### A merge defect this exposed
+
+Two `_DA_BR` folders hold the *other* model's blob:
+
+```
+SM-A156B.B5.mt6835_DA_BR/  contains  SM-A156E.B5.mt6789_auth_sv5.auth
+SM-A156E.B5.mt6789_DA_BR/  contains  SM-A156B.B5.mt6835_auth_sv5.auth
+```
+
+i.e. the two directory trees were swapped during the merge. The other 18
+`_DA_BR` folders are self-consistent. Since the payload is base64-tagged with
+its own name, the swap is provable rather than inferred.
 
 ## Layout D — Unisoc
 

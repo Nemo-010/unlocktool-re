@@ -406,3 +406,84 @@ Final tally of all 528 shipped loaders, after decryption:
 - **Confirmed**: yes.
 - **Status**: `validated`. This is the single largest boundary on the whole
   investigation: five external dependencies are referenced and none ship.
+
+## R31 — `_auth_sv5.auth` names two unrelated formats
+
+- **Hypothesis**: the 42 `_auth_sv5.auth` files are one kind of thing.
+- **Artefacts**: 2 are 2 256/2 272 bytes and are `MMM` containers; 40 are
+  ~1 049 756 bytes and are `MotoKingProS`/`R` blobs.
+- **Status**: `validated` (`tests/test_motoking.py::TestAuthInventory`).
+
+## R32 — The `MMM` auth container: u16 length that includes the header
+
+- **Hypothesis**: `MMM\x01` + u32 length + body (first reading).
+- **Experiments**: that reading declares 329 535 bytes for a 2 272-byte file.
+  Reading the length as **u16 at offset 4** gives 56, 1944, 16 — three blocks
+  that tile the file exactly, followed by a 256-byte trailer:
+  `FILE_INFO` / `MTK…` / zeros / signature.
+- **Confirmed**: yes. The u32 reading was wrong and is retracted.
+- **Status**: `validated`
+  (`test_mmm_block_length_is_u16_and_includes_the_header`).
+- **Note**: the 256-byte trailer matches `size_in_bytes="256"` in the `sig`
+  request of `EMMCBootFlash`, suggesting a captured auth exchange.
+
+## R33 — The 23 `auth.auth` files are ASCII-mangled and unrecoverable
+
+- **Hypothesis**: they are a third format worth parsing.
+- **Artefacts**: every one is 7-bit clean (`max(byte) <= 0x7F`) with `0x3F`
+  in exactly the positions a high byte belonged — 509 of 2 269 bytes in the
+  A15 file. The `MMM` magic survives, the length fields do not.
+- **Confirmed**: they are text-channel-corrupted copies of the `MMM` container.
+- **Status**: `validated` (`test_the_23_mangled_auth_auth_files_are_7bit_only`);
+  recovery is `disproven` — the information is gone.
+
+## R34 — `MotoKingProS` / `MotoKingProR`: a fifth vendor's container
+
+- **Hypothesis**: the 40 large `_auth_sv5.auth` files are opaque.
+- **Artefacts**: magic `MotoKingProS` (34) / `MotoKingProR` (6), **big-endian**
+  version 4, three big-endian header fields, a truncated base64 filename, a
+  6-byte marker `0C 00 3F 67 3D 00`, ~1 049 686 bytes of payload, and a
+  4-byte zero tail.
+- **Experiments**: the base64 field decodes to the original filename, e.g.
+  `U00tQTE1NUYuQjUubXQ2Nzg5X2F1dGhfc3Y1Lm` → `SM-A155F.B5.mt6789_auth_sv5.`,
+  which recovers the MTK chipset per model. Reading the header integers
+  little-endian gives version 67 108 864, i.e. it is provably BE.
+- **Confirmed**: yes. Implemented in `src/unlocktool_re/motoking.py`.
+- **Status**: `validated` (`tests/test_motoking.py`).
+- **Limitation**: the payload itself is not decoded. The `fields` triple
+  varies with the magic revision and payload size class, which suggests it
+  encodes a length/CRC rather than being a constant.
+
+## R35 — Two `_DA_BR` folders have their contents swapped
+
+- **Hypothesis**: each `_DA_BR` folder holds its own model's blobs.
+- **Artefacts**: `SM-A156B.B5.mt6835_DA_BR/` contains
+  `SM-A156E.B5.mt6789_auth_sv5.auth`, and `SM-A156E.B5.mt6789_DA_BR/` contains
+  `SM-A156B.B5.mt6835_auth_sv5.auth`. The other 18 are self-consistent.
+- **Confirmed**: provable, because the blob's own base64 field names the model
+  it belongs to.
+- **Status**: `validated` (`test_two_da_folders_hold_the_other_models_blob`).
+
+## R36 — `EMMCBootFlash` honours `SECTOR_SIZE_IN_BYTES`; the MTK path does not
+
+- **Hypothesis**: R21's hard-coded 512 is a whole-tool habit.
+- **Artefacts**: `EMMCBootFlash` reads `SECTOR_SIZE_IN_BYTES` and maps
+  `"512"` → `TypeMemory = "emmc"`, `"4096"` → `"ufs"`, and passes the script's
+  sector size to `WriteFlash`. Only `thread_handling.FormatFRP` and
+  `xflash_lib.ReadSector` hard-code `512.0`.
+- **Confirmed**: the defect is confined to the MTK path; the firehose path is
+  correct.
+- **Status**: `validated`
+  (`tests/test_ildump.py::test_firehose_path_reads_sector_size_from_the_script`
+  and `test_mtk_callers_hardcode_512`).
+
+## R37 — The exact firehose auth exchange
+
+- **Hypothesis**: the tool only sends `ACK`/`NAK`-checked commands.
+- **Artefacts**: `EMMCBootFlash` sends
+  `<data><sig TargetName="sig" size_in_bytes="256" verbose="1"/></data>` when
+  the device replies `Only nop and sig tag`, then expects `"ACK"` / `"NAK"` /
+  `Signature Verification Failed` inside the response.
+- **Confirmed**: yes, from the IL literal.
+- **Status**: `validated` (`tests/test_ildump.py::TestOperationResolution`
+  covers the surrounding control flow).

@@ -108,6 +108,28 @@ Mutation check: setting `payload_len` to a value that does not match the file
 body makes `parse` raise, which is what makes the invariant load-bearing rather
 than decorative.
 
+### 1.5b The IL tooling itself
+
+`tests/test_ildump.py` (15 tests) re-checks every IL citation in these docs
+against the assembly using only `tools/il/`:
+
+| Claim | Test |
+|---|---|
+| Assembly shape (339 TypeDef, 4 101 MethodDef, 89 ImplMap, 18 FieldRVA) | `TestTooling.test_assembly_shape` |
+| Zero unmapped method RVAs after decoding | `test_every_method_body_resolves` |
+| SHA-256 is applied to the password before the KDF | `test_sha256_precedes_the_kdf` |
+| One `Rfc2898DeriveBytes` instance supplies key and IV | `test_aes_parameters` |
+| Mode = CBC | `test_mode_is_cbc` |
+| Loader check is `Contains(\"ELF\")` on 20 bytes | `test_loader_check_is_a_substring_test` |
+| `DownloadBytes` is local-only | `test_downloadbytes_is_local_only` |
+| MTK frame is 56 bytes (`0x38`) | `test_format_sector_uses_a_56_byte_frame` |
+| MTK callers hard-code 512, firehose path reads the field | `test_mtk_callers_hardcode_512`, `test_firehose_path_reads_sector_size_from_the_script` |
+| Odin shells out to `data/dn.exe` | `test_odin_shells_out_to_dn_exe` |
+
+These run when `UNLOCKTOOL_COLOKTOOL` points at a decoded `ColokTool.exe`, and
+skip otherwise, so the repo stays honest about which claims are currently
+re-checked.
+
 ### 1.6 Local account / licence
 
 `test_auth.py` (19 tests) covers the `Check00` control flow, the
@@ -163,6 +185,9 @@ artefact needed to falsify them is not present.
 | A second AES key is a literal in the binary | Disproven: all 18 `FieldRVA` arrays tried, zero hits (R30) |
 | `data/` is one tool's data tree | Disproven: five payload layouts coexist; `_MERGE-BACKUP` shows SAMSUNG going 11 → 201 program rows (R24) |
 | The Odin path is managed code | Disproven: it shells out to `data/dn.exe`, which is not shipped (R28) |
+| The `MMM` block length is a u32 | Disproven: it is a u16 that includes the 8-byte header; the u32 reading declares 329 KB for a 2.2 KB file (R32) |
+| The 23 `auth.auth` files are a parseable third format | Disproven: they are ASCII-mangled copies, 7-bit clean with `0x3F` over every high byte (R33) |
+| The `MotoKingProS` header is little-endian | Disproven: a BE read gives version 4, an LE read gives 67 108 864 (R34) |
 
 ---
 
