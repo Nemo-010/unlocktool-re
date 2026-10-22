@@ -165,19 +165,23 @@ here. It is self-contained with no device dependency, so it is the next cheap
 win and would cover the Unisoc flashing path (29 models already have
 `fdl1`/`fdl2`).
 
-## 6c. The 158 scatter models have no operation scripts
+## 6c. The 158 scatter models are readable but not drivable — resolved
 
-**Finding from this round.** 158 models ship an MTK scatter file
-(`android.txt`) that `ColokTool.RDA.MtkScatter` parses, but their brand-index
-`method` slots name Qualcomm rawprogram scripts that do not exist for them.
-So the tool can read the partition table and cannot act on it via the
-documented path.
+**Resolved this round, as a negative.** `android.txt` is parsed by both
+`RDA.MtkScatter.ScatterTable` and `DXApplication.Mtkxml.ScatterTable`, but both
+are reachable only from a manual `"Choice Scatter Or OFP File !"` dialog
+(`Main.Button2_Click_1`, `Main.Button21_Click`, `Main.loadOfpScatter`). The
+brand-index `[BROM]` path (`thread_handling.FormatFRP`) gets its partition map
+from `gpt.readgpt` over the wire, never from the scatter file.
 
-**Next experiment**: check whether the MTK path uses the scatter table instead
-of a script — `thread_handling.FormatFRP` reads `gpt.readgpt` for the partition
-map, not the scatter. If so, those 158 models may be drivable by
-partition-name alone and the "missing script" count for them is a false
-negative.
+So the scatter layout does **not** make those 158 models drivable from the UI,
+and the "missing script" count for them is a true negative. The honest
+drivable figure is 383 method rows, not 715 folders.
+
+**What is still open**: whether `gpt.readgpt` alone is sufficient for
+`[BROM]` FRP — i.e. whether a model with a `programs.bin`-less folder and a
+working BROM handshake could still reset FRP from the on-device GPT. That is a
+device-side question, not a static one.
 
 ## 7. Not attempted
 
