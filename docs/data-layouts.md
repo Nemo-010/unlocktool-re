@@ -258,8 +258,32 @@ Measured over the tree:
 Implemented in `src/unlocktool_re/scatter.py`.
 
 `ColokTool.DXApplication.Mtkxml` exposes the same surface API (`CPU`, `Cache`,
-`Userdata`, `Cachepath`, `Userpath`, `IsSupport`, `ScatterTable`) and is the
-**XML** scatter variant; 12 folders ship `MTxxxx_Android_scatter.xml` instead.
+`Userdata`, `Cachepath`, `Userpath`, `IsSupport`, `ScatterTable`) and its
+`ScatterTable` has **the identical body**: the same
+`Replace("- partition_index:", "+ partition_index:")` then `Split('+')`. So
+`Mtkxml` is not an XML variant despite its name — both classes parse the YAML
+form. Its `IsSupport` additionally pulls the chipset out of a `platform:` line.
+
+The 12 folders that ship a real `MTxxxx_Android_scatter.xml` are a *different*
+thing: that file is genuine XML (`<root>`, `<general>`, `<partition>`) and
+contains no `partition_index:` at all, so neither `ScatterTable` can read it.
+
+### The scatter layout is manual-only
+
+Neither `ScatterTable` is reachable from the brand index. Both call sites are
+`Main.Button2_Click_1` / `Button21_Click` / `Main.loadOfpScatter`, which open a
+file dialog:
+
+```
+"Choice Scatter Or OFP File !"
+"Scatter or OFP file  |*.txt;*.ofp"
+```
+
+So `android.txt` is parsed only when the operator picks a scatter file by hand.
+`thread_handling.FormatFRP` — the `[BROM]` path the brand index drives — gets
+its partition map from `gpt.readgpt` over the wire, never from the scatter
+file. That is why the 158 scatter models have a readable partition table but
+no usable operation scripts: the two are unrelated code paths.
 
 ## Layout D — Unisoc
 
