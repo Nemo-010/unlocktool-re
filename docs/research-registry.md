@@ -253,3 +253,99 @@ method RID, byte range), never "it looks like".
 Covered by R10; kept as a separate row because it is the one place where
 "absent from the call graph" could mean either dead code or an indirection we
 could not see. We do not claim either.
+
+## R24 — `data/` is a merge of four different tools' payload layouts
+
+- **Hypothesis**: the data tree is one tool's tree, as `OFFLINE-DATA-README.md`
+  describes.
+- **Artefacts**: `data/SAMSUNG/` alone holds 202 model folders in five
+  incompatible shapes:
+  - **ColokTool**: `programs.bin` (+ `Reset FRP`, `operations.xml`) — 108
+  - **PrimeToolX**: `device_info.txt` + `model.json` + `qualcomm.pyd` — 44
+  - **MTK DA pair**: `<Model>_DA_BR.bin` + `_auth_sv5.auth` — 23 (+23 nested)
+  - **auth.auth only** — 23
+  - **Unisoc**: `fdl1.bin` + `fdl2.bin` — 2
+- **Evidence the merge is real**: `_MERGE-BACKUP/` has 9 snapshots from
+  2026-09-29; SAMSUNG's index goes 11 → 201 `<program>` rows across them, and
+  XIAOMI is absent from the first six snapshots and present in the last three.
+  `data/SAMSUNG/SM-X826B.B2.mt6989_DA_BR/samsung.xml` is a third brand index
+  inside a DA-pair folder, i.e. a whole directory tree was copied wholesale.
+- **Confirmed**: yes.
+- **Status**: `validated` — `docs/data-layouts.md`.
+- **Consequence**: the compatibility matrix counts only layout E, which is
+  correct for *this binary* but understates what is shipped.
+
+## R25 — The loader check is a substring test, not an ELF test
+
+- **Hypothesis**: the tool validates a loader by checking the ELF magic.
+- **Artefacts**: `EMMCBootFlash` and `EMMCBootPLUS` both do
+  `Encoding.UTF8.GetString(loader, 0, 20).ToUpper().Contains("ELF")`.
+- **Experiments**: re-implemented that predicate and compared it with
+  `loader[:4] == b'\x7fELF'` across all 528 shipped loaders — 495 accept, 495
+  ELF, **zero disagreements**.
+- **Confirmed**: the tool's check is looser than an ELF check, but on this
+  data set the two agree exactly, so the looseness is not exploitable here.
+- **Status**: `validated`.
+
+## R26 — The 33 rejected loaders split into four distinct causes
+
+- **Hypothesis**: the 33 non-ELF loaders are all a wrong key.
+- **Artefacts** (after decrypting with the documented key and stripping
+  padding):
+  - 6 × `d1 dc 4b 84 …` — a plausible ARM image (`d1 dc 4b 84` then
+    `34 10 d7 73`, then a 13/21-byte length and `ff ff ff ff`); this is a
+    second container format, not garbage.
+  - 20 × `ae 91 a6 a9 …`, all **byte-identical** (one file, sha256
+    `612ac4d5…`, copied into 20 folders across OPPO/REALME/VIVO).
+  - 2 × `7f 45 4c 45` — a real ELF whose 4th byte is `0x45` instead of `0x46`.
+    Patched to `0x46` the ELF32/ELF64 headers parse cleanly with sane
+    `e_phoff`, `e_phentsize` and in-file segment ranges, so the rest of the
+    file is intact. Cause: a single corrupted byte in the source file.
+  - 2 × `10 10 10 10` × 16 (16 bytes) — decrypts to all-`0x10`, which is what
+    an **empty file** encrypted with this key produces (PKCS#7 pads empty to
+    16 × `0x10`). Tested: a genuine all-`0x10` *ciphertext* block decrypts to
+    random bytes, so this is the padding, not a wrong key.
+  - 1 × `64 61 74 61 20 64 64 63 68` ("data ddch").
+  - 1 × `aa 43 3b 30 …`, 1 × `dc 7b bd 85 …` — two more distinct keys or
+    formats.
+- **Confirmed**: the causes are heterogeneous.
+- **Status**: `validated` for the classification; `blocked` on the key for the
+  remaining ones.
+
+## R27 — The `[EDL]` operation scripts are the firehose plan, not a partition map
+
+- **Hypothesis**: the operation scripts are only used by the MTK path.
+- **Artefacts**: `EMMCBootFlash` assigns
+  `StringXml = UTF8.GetString(DownloadBytes(Brand + "/" + Model + "/" + operation))`
+  and `ProcessQcomFlash` then walks `StringXml` with an `XmlTextReader`,
+  reading `SECTOR_SIZE_IN_BYTES`, `num_partition_sectors`, `label`,
+  `filename`, `physical_partition_number`, `start_sector` and calling
+  `WriteFlash(sector_size, num_sectors, lun, filename, label)`.
+- **Confirmed**: yes — the same file is the Qualcomm plan and (for MTK) a
+  partition map.
+- **Status**: `validated`.
+
+## R28 — Samsung's "Odin" path shells out to `data/dn.exe`
+
+- **Hypothesis**: `Tread_SAMSUNG` implements the Odin protocol in managed code.
+- **Artefacts**: `Tread_SAMSUNG.ExecuteOdin` builds a
+  `ProcessStartInfo { FileName = StartupPath + "/data/dn.exe",
+  WorkingDirectory = StartupPath + "/data", Arguments = …, RedirectStandardOutput = true }`
+  and parses the child's stdout with `DataReceivedEventHandler`.
+  `OdinDetect` runs `data\dn.exe` with the verb `runas`.
+- **Experiments**: `data/dn.exe` is **not in the installer** (no payload entry
+  matches `dn.exe`).
+- **Confirmed**: the Odin path is an external-binary wrapper, and the binary is
+  absent, so the Samsung workflows cannot run from the shipped archive at all.
+- **Status**: `validated` (absence confirmed against all 7 387 payload names).
+
+## R29 — `data/dn.exe` and the four vendor DLLs are all absent
+
+- **Hypothesis**: the installer is self-contained.
+- **Artefacts**: cross-checked every `ImplMap`/`Process` target against the
+  payload list: `dn.exe`, `QMSL_MSVC10R.dll`, `SPMETA_DLL.dll`,
+  `spdio-1.0.dll` and `PhoneCommand.dll` are all missing. `data/Unisoc/` does
+  not exist in the tree at all.
+- **Confirmed**: yes.
+- **Status**: `validated`. This is the single largest boundary on the whole
+  investigation: five external dependencies are referenced and none ship.
