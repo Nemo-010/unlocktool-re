@@ -20,6 +20,15 @@ Per-manufacturer summary. The per-device machine-readable form is
 A device in the "Usable" column has every input the tool needs for at least
 one operation. It is still not *validated* — that would need a device.
 
+**Important caveat, added after the scatter layout was found.** The `Loader`
+and `Usable` columns count only the `programs.bin` (Qualcomm EDL) layout. 158
+models instead ship an MTK scatter file (`android.txt`), which
+`ColokTool.RDA.MtkScatter` parses — a second *readable* layout that the first
+version of this table did not model. See `docs/data-layouts.md` §C4 and the
+`Payload layouts` section of `docs/compatibility-matrix.md` for the full
+picture. The per-brand rows below are therefore a lower bound on what the tool
+can drive, not a census.
+
 ## Summary
 
 | OEM | Platform | Models | Folder | Loader | Loader ok | Slots | Script | Parses | Usable | Authorization |
@@ -88,6 +97,34 @@ README describes and this audit measures.
 33 devices have a `programs.bin` that does not become an ELF with either
 documented password. They cluster in ASUS (3), OPPO (10), REALME (8), VIVO (8),
 XIAOMI (4). See `docs/remaining-work.md` §1.
+
+## Payload layouts across all 1 559 indexed models
+
+This is the table to read first: it says which models have *any* payload the
+binary can consume, regardless of `programs.bin`.
+
+| Brand | `programs.bin` (EDL) | `android.txt` (scatter) | `fdl1`/`fdl2` (Unisoc) | no folder | foreign |
+|---|---|---|---|---|---|
+| ASUS | 28 | 5 | . | . | . |
+| HUAWEI | 7 | 20 | . | 1 | . |
+| INFINIX | 6 | 24 | . | 1 | . |
+| ITEL | . | . | 21 | 2 | . |
+| LENOVO | 15 | . | . | 35 | . |
+| LG | . | . | . | 52 | . |
+| MEIZU | 17 | . | . | 20 | . |
+| NOKIA | . | . | . | 9 | . |
+| OPPO | 126 | 64 | . | 39 | . |
+| REALME | 20 | . | 8 | 71 | . |
+| SAMSUNG | 62 | . | . | 124 | 22 |
+| TECNO | . | . | . | 129 | . |
+| VIVO | 108 | 45 | . | 6 | . |
+| XIAOMI | 139 | . | . | 200 | 9 |
+| XIAOMItyu | . | . | . | 124 | . |
+| **total** | **528** | **158** | **29** | **813** | **31** |
+
+**715 of 1 559 indexed models (45.9%) have a payload folder the binary can
+read**, up from the 528 that `programs.bin` alone accounts for. 813 have no
+folder at all, and 31 have only a merged-in foreign layout.
 
 ## Loader classification
 
