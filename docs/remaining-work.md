@@ -158,12 +158,33 @@ validated the offset arithmetic against real data.
 region parses as XML, the reader is confirmed; if not, the probe constant or
 the `+20`/`+24` offsets need re-deriving from `BruteKeyQcom`.
 
-## 6b. Decode the `.pac` container
+## 6b. Decode the 28 opaque REALME `.pac` files
 
-`UniFlash.PACExtractor` (1 577 IL ops) is implemented but not reconstructed
-here. It is self-contained with no device dependency, so it is the next cheap
-win and would cover the Unisoc flashing path (29 models already have
-`fdl1`/`fdl2`).
+**Status**: the header is solved (`pac.py`) and validated against the one
+readable sample, but 28 of 29 shipped `.pac` files are a different variant.
+
+Evidence that it is *not* a header-offset problem:
+
+- all 28 share one **identical** 48-byte prefix
+  (`6cdd713d5f57dcd407ee2c8e24a2f60e`), so it is a constant, not a per-file
+  salt;
+- entropy is 8.0 and there is **no repeated 16-byte block** anywhere, so the
+  body is not ECB and not plaintext;
+- `ParsePacHeader` would reject them at the version gate before reading any
+  partition data.
+
+**Next experiments**:
+
+1. Check whether the constant 48-byte prefix appears anywhere else in the
+   archive (another tool's magic), which would identify the owner.
+2. `OFPExtractor.BruteKeyQcom` is the only "brute key" routine in the binary;
+   check whether it is called on `.pac` input and what it keys on.
+3. ~~Compare two REALME `.pac` files of the same model in different operation
+   folders.~~ **Done**: for `Realme C11 RMX3231`, `program.pac` and
+   `RESET FRP/program.pac` are **byte-identical** (same 5 593 184-byte hash),
+   while `FACTORY RESET - FRP/program.pac` differs. So the payload is mostly
+   per-model with at most one operation-specific variant — the same pattern as
+   the MotoKing auth blobs (R34), which also ship twice per model.
 
 ## 6c. The 158 scatter models are readable but not drivable — resolved
 
