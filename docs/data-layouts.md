@@ -202,6 +202,65 @@ i.e. the two directory trees were swapped during the merge. The other 18
 `_DA_BR` folders are self-consistent. Since the payload is base64-tagged with
 its own name, the swap is provable rather than inferred.
 
+## Layout C4 — MTK scatter (`android.txt`), 158 folders
+
+This is the second-largest readable layout and it was **missing from the first
+version of this document and from the compatibility matrix**, which counted
+those 158 models as "folder present, loader absent" and so understated what
+the tool can drive.
+
+`android.txt` is a MediaTek **scatter file** in the YAML-ish form:
+
+```yaml
+- general: MTK_PLATFORM_CFG
+  info:
+    - config_version: V1.1.2
+      platform: MT6737M
+      project: D281L
+      storage: EMMC
+      block_size: 0x20000
+- partition_index: SYS21
+  partition_name: frp
+  file_name: NONE
+  is_download: false
+  linear_start_addr: 0x13c00000
+  partition_size: 0x100000
+  operation_type: INVISIBLE
+```
+
+`ColokTool.RDA.MtkScatter.ScatterTable(string)` parses exactly this, and the IL
+pins the format:
+
+```
+text = File.ReadAllText(path)
+text = text.Replace("- partition_index:", "+ partition_index:")
+foreach part in text.Split('+'):        // 0x2B
+    if part.Contains("partition_name"): // parse fields with a StringReader
+```
+
+The `Replace` before the `+` split is the tell: the tool rewrites the list
+marker so a plain `+` split separates entries. `android.txt` is in the binary's
+string literals, so this is its own layout, not a merged-in one.
+
+Indentation is **not** stable across vendors — some files use
+`- partition_index:` at column 0 and some use two-space indentation — so the
+parser allows leading whitespace on both the marker and the fields.
+
+Measured over the tree:
+
+| | |
+|---|---|
+| `android.txt` folders | 158 |
+| files that parse | **158** |
+| files declaring an `frp` partition | **158** |
+| files declaring `platform:` | **158** |
+
+Implemented in `src/unlocktool_re/scatter.py`.
+
+`ColokTool.DXApplication.Mtkxml` exposes the same surface API (`CPU`, `Cache`,
+`Userdata`, `Cachepath`, `Userpath`, `IsSupport`, `ScatterTable`) and is the
+**XML** scatter variant; 12 folders ship `MTxxxx_Android_scatter.xml` instead.
+
 ## Layout D — Unisoc
 
 Two folders (`Samsung Galaxy A03 Core U2 [SM-A035F]`, `Samsung Galaxy A03 U2

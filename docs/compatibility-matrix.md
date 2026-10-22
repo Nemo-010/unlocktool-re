@@ -30,6 +30,23 @@ behaviour the vendor README itself describes.
 | XIAOMItyu | 124 | 0 | 0 | 0 | 0 | 0 | 533 | 0 | 0 |
 | **total** | 1559 | 852 | 746 | 528 | 495 | 33 | 2228 | 988 | 21 |
 
+## Payload layouts
+
+A model can only be driven by ColokTool if its folder is one of the first
+three layouts below. The last three are merged-in foreign layouts that
+this binary never reads (see `docs/data-layouts.md`).
+
+| Layout | Models | Read by ColokTool |
+|---|---|---|
+| programs.bin (EDL) | 528 | yes |
+| android.txt (MTK scatter) | 158 | yes |
+| fdl1/fdl2 (Unisoc) | 29 | yes |
+| no payload folder | 813 | no |
+| auth.auth | 19 | no |
+| other | 12 | no |
+
+Scatter files parse in 158 of 158 `android.txt` folders.
+
 ## Operation families per brand
 
 Counts are of *parseable* scripts, i.e. operations the tool can actually

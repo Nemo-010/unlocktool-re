@@ -17,8 +17,40 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 '..', 'src'))
 
-from unlocktool_re import crypto, firehose            # noqa: E402
+from unlocktool_re import crypto, firehose, scatter   # noqa: E402
 from unlocktool_re.datatree import DataTree          # noqa: E402
+
+# How each model folder's payload is shaped.  The first four are layouts
+# ColokTool itself reads (verified against its string literals); the rest are
+# merged-in foreign layouts (docs/data-layouts.md).
+LAYOUT_EDL = 'programs.bin (EDL)'
+LAYOUT_SCATTER = 'android.txt (MTK scatter)'
+LAYOUT_UNISOC = 'fdl1/fdl2 (Unisoc)'
+LAYOUT_NONE = 'no payload folder'
+LAYOUT_FOREIGN = ('auth.auth', 'loader.elf', 'MTK scatter XML', 'empty', 'other')
+
+
+def classify_layout(tree, brand, key):
+    import os
+    d = tree.model_dir(brand, key)
+    if not os.path.isdir(d):
+        return LAYOUT_NONE
+    f = set(os.listdir(d))
+    if 'programs.bin' in f:
+        return LAYOUT_EDL
+    if 'fdl1.bin' in f:
+        return LAYOUT_UNISOC
+    if 'android.txt' in f:
+        return LAYOUT_SCATTER
+    if any(x.endswith('scatter.xml') or x.endswith('scatter.txt') for x in f):
+        return 'MTK scatter XML'
+    if 'loader.elf' in f:
+        return 'loader.elf'
+    if 'auth.auth' in f:
+        return 'auth.auth'
+    if not f:
+        return 'empty'
+    return 'other'
 
 OPERATION_FAMILIES = [
     ('RESET FRP', lambda n: 'FRP' in n.upper()),
@@ -67,7 +99,15 @@ def scan(tree):
                 'programs_bin': False,
                 'loader_ok': None,
                 'loader_error': None,
+                'layout': classify_layout(tree, brand.brand, key),
+                'scatter_ok': None,
+                'scatter_entries': None,
             }
+            if row['layout'] == LAYOUT_SCATTER:
+                sc = scatter.load(
+                    tree.model_dir(brand.brand, key) + '/android.txt')
+                row['scatter_ok'] = bool(sc and not sc.error and sc.entries)
+                row['scatter_entries'] = len(sc.entries) if sc else 0
             ops = ops_by_key.get(key)
             if ops:
                 for name in ops.operations:
@@ -99,6 +139,7 @@ def scan(tree):
 
 def summarise(rows):
     by_brand = collections.defaultdict(lambda: collections.Counter())
+    layouts = collections.Counter(r['layout'] for r in rows)
     fam = collections.defaultdict(lambda: collections.Counter())
     for r in rows:
         b = by_brand[r['brand']]
@@ -115,10 +156,10 @@ def summarise(rows):
             if op['present'] and not op['error']:
                 for f in op['families']:
                     fam[r['brand']][f] += 1
-    return by_brand, fam
+    return by_brand, fam, layouts
 
 
-def write_report(tree, rows, by_brand, fam, out):
+def write_report(tree, rows, by_brand, fam, layouts, out):
     total = len(rows)
     lines = []
     w = lines.append
@@ -150,6 +191,25 @@ def write_report(tree, rows, by_brand, fam, out):
         grand['models'], grand['advertised'], grand['folder'], grand['loader'],
         grand['loader_ok'], grand['loader_bad'], grand['op_advertised'],
         grand['op_present'], grand['op_broken']))
+    w('')
+    w('## Payload layouts')
+    w('')
+    w('A model can only be driven by ColokTool if its folder is one of the first')
+    w('three layouts below. The last three are merged-in foreign layouts that')
+    w('this binary never reads (see `docs/data-layouts.md`).')
+    w('')
+    w('| Layout | Models | Read by ColokTool |')
+    w('|---|---|---|')
+    for name in (LAYOUT_EDL, LAYOUT_SCATTER, LAYOUT_UNISOC, LAYOUT_NONE,
+                 'auth.auth', 'other', 'MTK scatter XML', 'loader.elf', 'empty'):
+        if layouts.get(name):
+            readable = 'yes' if name in (LAYOUT_EDL, LAYOUT_SCATTER,
+                                         LAYOUT_UNISOC) else 'no'
+            w('| %s | %d | %s |' % (name, layouts[name], readable))
+    w('')
+    w('Scatter files parse in %d of %d `android.txt` folders.' % (
+        sum(1 for r in rows if r['scatter_ok']),
+        sum(1 for r in rows if r['layout'] == LAYOUT_SCATTER)))
     w('')
     w('## Operation families per brand')
     w('')
@@ -214,9 +274,9 @@ def main():
     args = ap.parse_args()
     tree = DataTree(args.tree)
     rows = scan(tree)
-    by_brand, fam = summarise(rows)
+    by_brand, fam, layouts = summarise(rows)
     os.makedirs(os.path.dirname(args.out) or '.', exist_ok=True)
-    write_report(tree, rows, by_brand, fam, args.out)
+    write_report(tree, rows, by_brand, fam, layouts, args.out)
     with open(args.json, 'w') as fh:
         json.dump(rows, fh, indent=1)
     print('models', len(rows), '->', args.out, 'and', args.json)
